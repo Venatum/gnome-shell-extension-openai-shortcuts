@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="openai-shortcuts">
+  <schema id="org.gnome.shell.extensions.openai-shortcuts" path="/org/gnome/shell/extensions/openai-shortcuts/">
+    <key name="chatgpt-url" type="s">
+      <default>'https://chat.openai.com'</default>
+      <summary>ChatGPT URL</summary>
+      <description>URL to open when clicking on the ChatGPT menu item</description>
+    </key>
+    <key name="custom-shortcuts" type="as">
+      <default>[]</default>
+      <summary>Custom shortcuts</summary>
+      <description>List of custom shortcuts to OpenAI services</description>
+    </key>
+  </schema>
+</schemalist>
