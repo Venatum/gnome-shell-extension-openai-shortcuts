@@ -11,5 +11,10 @@
       <summary>Custom shortcuts</summary>
       <description>List of custom shortcuts to OpenAI services</description>
     </key>
+    <key name="openai-api-token" type="s">
+      <default>''</default>
+      <summary>OpenAI API Token</summary>
+      <description>API token for accessing OpenAI services</description>
+    </key>
   </schema>
 </schemalist>
