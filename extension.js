@@ -55,6 +55,19 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             );
             this.menu.addMenuItem(this.settingsMenuItem);
             this.settingsMenuItem.connect('activate', this._openSettings.bind(this));
+
+            // Add 'Exit' menu item to close the menu
+            this.exitMenuItem = new PopupMenu.PopupMenuItem('Exit');
+            this.exitMenuItem.insert_child_at_index(
+                new St.Icon({
+                    icon_name: 'window-close-symbolic',
+                    style_class: 'clipboard-menu-icon',
+                    y_align: Clutter.ActorAlign.CENTER
+                }),
+                0
+            );
+            this.menu.addMenuItem(this.exitMenuItem);
+            this.exitMenuItem.connect('activate', this._exitMenu.bind(this));
         }
 
         _openChatGPT() {
@@ -64,6 +77,10 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
 
         _openSettings () {
             this.extension.openPreferences();
+        }
+
+        _exitMenu() {
+            this.extension.disable();
         }
 
         _getGIcon(name) {
