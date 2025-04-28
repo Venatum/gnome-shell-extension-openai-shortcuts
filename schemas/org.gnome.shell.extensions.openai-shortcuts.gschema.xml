@@ -16,5 +16,20 @@
       <summary>OpenAI API Token</summary>
       <description>API token for accessing OpenAI services</description>
     </key>
+    <key name="openai-model" type="s">
+      <default>'gpt-3.5-turbo'</default>
+      <summary>OpenAI Model</summary>
+      <description>The OpenAI model to use for API requests</description>
+    </key>
+    <key name="enable-notifications" type="b">
+      <default>true</default>
+      <summary>Enable Notifications</summary>
+      <description>Whether to show notifications for OpenAI operations</description>
+    </key>
+    <key name="notification-title" type="s">
+      <default>'OpenAI Shortcuts'</default>
+      <summary>Notification Title</summary>
+      <description>The title to use for notifications</description>
+    </key>
   </schema>
 </schemalist>

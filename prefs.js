@@ -36,10 +36,54 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             isPassword: true,
             onChanged: newValue => settings.set_string('openai-api-token', newValue)
         });
+        // OpenAI Model row
+        const modelRow = this._createSettingsRow({
+            title: 'OpenAI Model',
+            subtitle: 'The OpenAI model to use for API requests (e.g., gpt-3.5-turbo, gpt-4)',
+            defaultValue: settings.get_string('openai-model'),
+            isPassword: false,
+            onChanged: newValue => settings.set_string('openai-model', newValue)
+        });
         // Add rows to group and group to the page
         generalGroup.add(chatgptUrlRow);
         generalGroup.add(apiTokenRow);
+        generalGroup.add(modelRow);
         page.add(generalGroup);
+
+        //// Notification Settings group
+        const notificationGroup = new Adw.PreferencesGroup({
+            title: this.gettext('Notification Settings'),
+        });
+
+        // Enable Notifications switch
+        const enableNotificationsRow = new Adw.ActionRow({
+            title: this.gettext('Enable Notifications'),
+            subtitle: this.gettext('Show notifications for OpenAI operations'),
+        });
+
+        const enableNotificationsSwitch = new Gtk.Switch({
+            active: settings.get_boolean('enable-notifications'),
+            valign: Gtk.Align.CENTER,
+        });
+
+        enableNotificationsSwitch.connect('notify::active', widget => {
+            settings.set_boolean('enable-notifications', widget.get_active());
+        });
+
+        enableNotificationsRow.add_suffix(enableNotificationsSwitch);
+        enableNotificationsRow.activatable_widget = enableNotificationsSwitch;
+        notificationGroup.add(enableNotificationsRow);
+
+        // Notification Title row
+        const notificationTitleRow = this._createSettingsRow({
+            title: 'Notification Title',
+            subtitle: 'The title to use for notifications',
+            defaultValue: settings.get_string('notification-title'),
+            isPassword: false,
+            onChanged: newValue => settings.set_string('notification-title', newValue)
+        });
+        notificationGroup.add(notificationTitleRow);
+        page.add(notificationGroup);
 
         //// Shortcuts group
         const shortcutsGroup = new Adw.PreferencesGroup({
