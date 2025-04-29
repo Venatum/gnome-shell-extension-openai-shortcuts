@@ -111,42 +111,21 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         });
         shortcutsGroup.add(shortcut2PrefixRow);
 
-        // Shortcut 1 Keybinding row
-        const shortcut1KeybindingRow = new Adw.ActionRow({
-            title: this.gettext('Shortcut 1 Keybinding'),
-            subtitle: this.gettext('Keyboard shortcut for Shortcut 1 (translate)'),
+        // Create keybinding rows
+        const shortcut1KeybindingRow = this._createKeybindingRow({
+            settings: settings,
+            title: 'Shortcut 1 Keybinding',
+            subtitle: 'Keyboard shortcut for Shortcut 1 (translate)',
+            settingName: 'shortcut1-keybinding'
         });
-
-        const shortcut1Button = new Gtk.Button({
-            valign: Gtk.Align.CENTER,
-            label: this._getAcceleratorLabel(settings.get_strv('shortcut1-keybinding')[0] || ''),
-        });
-
-        shortcut1Button.connect('clicked', () => {
-            this._showShortcutDialog(settings, 'shortcut1-keybinding', shortcut1Button);
-        });
-
-        shortcut1KeybindingRow.add_suffix(shortcut1Button);
-        shortcut1KeybindingRow.activatable_widget = shortcut1Button;
         shortcutsGroup.add(shortcut1KeybindingRow);
 
-        // Shortcut 2 Keybinding row
-        const shortcut2KeybindingRow = new Adw.ActionRow({
-            title: this.gettext('Shortcut 2 Keybinding'),
-            subtitle: this.gettext('Keyboard shortcut for Shortcut 2 (improve)'),
+        const shortcut2KeybindingRow = this._createKeybindingRow({
+            settings: settings,
+            title: 'Shortcut 2 Keybinding',
+            subtitle: 'Keyboard shortcut for Shortcut 2 (improve)',
+            settingName: 'shortcut2-keybinding'
         });
-
-        const shortcut2Button = new Gtk.Button({
-            valign: Gtk.Align.CENTER,
-            label: this._getAcceleratorLabel(settings.get_strv('shortcut2-keybinding')[0] || ''),
-        });
-
-        shortcut2Button.connect('clicked', () => {
-            this._showShortcutDialog(settings, 'shortcut2-keybinding', shortcut2Button);
-        });
-
-        shortcut2KeybindingRow.add_suffix(shortcut2Button);
-        shortcut2KeybindingRow.activatable_widget = shortcut2Button;
         shortcutsGroup.add(shortcut2KeybindingRow);
 
         page.add(shortcutsGroup);
@@ -155,6 +134,16 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         window.add(page);
     }
 
+    /**
+     * Create a settings row with a text entry
+     * @param {Object} options - Options for the row
+     * @param {string} options.title - The title of the row
+     * @param {string} options.subtitle - The subtitle of the row
+     * @param {string} options.defaultValue - The default value of the entry
+     * @param {boolean} options.isPassword - Whether the entry is a password entry
+     * @param {Function} options.onChanged - The function to call when the entry changes
+     * @returns {Adw.ActionRow} - The created row
+     */
     _createSettingsRow({title, subtitle, defaultValue, isPassword = false, onChanged}) {
         const row = new Adw.ActionRow({
             title: this.gettext(title),
@@ -183,6 +172,41 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         return row;
     };
 
+    /**
+     * Create a keybinding row with a button to set the shortcut
+     * @param {Object} options - Options for the row
+     * @param {Gio.Settings} options.settings - The settings object
+     * @param {string} options.title - The title of the row
+     * @param {string} options.subtitle - The subtitle of the row
+     * @param {string} options.settingName - The name of the setting containing the keybinding
+     * @returns {Adw.ActionRow} - The created row
+     */
+    _createKeybindingRow({settings, title, subtitle, settingName}) {
+        const row = new Adw.ActionRow({
+            title: this.gettext(title),
+            subtitle: this.gettext(subtitle),
+        });
+
+        const button = new Gtk.Button({
+            valign: Gtk.Align.CENTER,
+            label: this._getAcceleratorLabel(settings.get_strv(settingName)[0] || ''),
+        });
+
+        button.connect('clicked', () => {
+            this._showShortcutDialog(settings, settingName, button);
+        });
+
+        row.add_suffix(button);
+        row.activatable_widget = button;
+
+        return row;
+    };
+
+    /**
+     * Get a human-readable label for an accelerator
+     * @param {string} accelerator - The accelerator string
+     * @returns {string} - A human-readable label
+     */
     _getAcceleratorLabel(accelerator) {
         if (!accelerator || accelerator === '')
             return 'Click to set shortcut';
@@ -190,6 +214,12 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         return accelerator;
     }
 
+    /**
+     * Show a dialog to set a keyboard shortcut
+     * @param {Gio.Settings} settings - The settings object
+     * @param {string} settingName - The name of the setting containing the keybinding
+     * @param {Gtk.Button} button - The button that was clicked to open the dialog
+     */
     _showShortcutDialog(settings, settingName, button) {
         const dialog = new Gtk.Dialog({
             title: 'Set Keyboard Shortcut',

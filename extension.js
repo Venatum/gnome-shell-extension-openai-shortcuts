@@ -34,51 +34,69 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             this._buildMenu()
         }
 
+        /**
+         * Create a menu item with an icon
+         * @param {string} text - The text to display in the menu item
+         * @param {string} iconName - The name of the icon to display
+         * @param {Function} callback - The function to call when the menu item is activated
+         * @returns {PopupMenu.PopupMenuItem} - The created menu item
+         */
+        _createMenuItem(text, iconName, callback) {
+            const menuItem = new PopupMenu.PopupMenuItem(text);
+
+            if (iconName) {
+                menuItem.insert_child_at_index(
+                    new St.Icon({
+                        icon_name: iconName,
+                        style_class: 'clipboard-menu-icon',
+                        y_align: Clutter.ActorAlign.CENTER
+                    }),
+                    0
+                );
+            }
+            if (callback) {
+                menuItem.connect('activate', callback);
+            }
+            return menuItem;
+        }
+
+        /**
+         * Create a shortcut menu item
+         * @param {number} shortcutNumber - The shortcut number (1 or 2)
+         * @param {string} iconName - The icon name for the menu item
+         * @returns {PopupMenu.PopupMenuItem} - The created menu item
+         */
+        _createShortcutMenuItem(shortcutNumber, iconName) {
+            const prefix = this._getShortcutPrefix(shortcutNumber);
+            return this._createMenuItem(
+                `Shortcut ${shortcutNumber}: ${prefix}`,
+                iconName,
+                () => this._sendClipboardWithPrefix(shortcutNumber)
+            );
+        }
+
         _buildMenu() {
             // Open ChatGPT
-            let menuItem = new PopupMenu.PopupMenuItem("Open ChatGPT");
-            menuItem.connect("activate", () => this._openChatGPT());
-            this.menu.addMenuItem(menuItem);
+            const chatGptMenuItem = this._createMenuItem(
+                "Open ChatGPT",
+                null,
+                () => this._openChatGPT()
+            );
+            this.menu.addMenuItem(chatGptMenuItem);
 
             // Add clipboard to OpenAI menu item
-            let clipboardMenuItem = new PopupMenu.PopupMenuItem("Send Clipboard to OpenAI");
-            clipboardMenuItem.insert_child_at_index(
-                new St.Icon({
-                    icon_name: 'edit-paste-symbolic',
-                    style_class: 'clipboard-menu-icon',
-                    y_align: Clutter.ActorAlign.CENTER
-                }),
-                0
+            const clipboardMenuItem = this._createMenuItem(
+                "Send Clipboard to OpenAI",
+                'edit-paste-symbolic',
+                () => this._sendClipboardToOpenAI()
             );
-            clipboardMenuItem.connect("activate", () => this._sendClipboardToOpenAI());
             this.menu.addMenuItem(clipboardMenuItem);
 
-            // Add Shortcut 1 menu item
-            const shortcut1Prefix = this.settings.get_string('shortcut1-prefix');
-            let shortcut1MenuItem = new PopupMenu.PopupMenuItem(`Shortcut 1: ${shortcut1Prefix}`);
-            shortcut1MenuItem.insert_child_at_index(
-                new St.Icon({
-                    icon_name: 'accessories-dictionary-symbolic',
-                    style_class: 'clipboard-menu-icon',
-                    y_align: Clutter.ActorAlign.CENTER
-                }),
-                0
-            );
-            shortcut1MenuItem.connect("activate", () => this._sendClipboardWithPrefix(1));
+            // Add Shortcut menu items
+            const shortcut1MenuItem = this._createShortcutMenuItem(1, 'accessories-dictionary-symbolic');
             this.menu.addMenuItem(shortcut1MenuItem);
 
-            // Add Shortcut 2 menu item
-            const shortcut2Prefix = this.settings.get_string('shortcut2-prefix');
-            let shortcut2MenuItem = new PopupMenu.PopupMenuItem(`Shortcut 2: ${shortcut2Prefix}`);
-            shortcut2MenuItem.insert_child_at_index(
-                new St.Icon({
-                    icon_name: 'document-edit-symbolic',
-                    style_class: 'clipboard-menu-icon',
-                    y_align: Clutter.ActorAlign.CENTER
-                }),
-                0
-            );
-            shortcut2MenuItem.connect("activate", () => this._sendClipboardWithPrefix(2));
+            const shortcut2MenuItem = this._createShortcutMenuItem(2, 'document-edit-symbolic');
             this.menu.addMenuItem(shortcut2MenuItem);
 
             // Add separator
@@ -86,31 +104,20 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             this.menu.addMenuItem(this.historySeparator);
 
             // Add 'Settings' menu item to open settings
-            // this.settingsMenuItem = new PopupMenu.PopupMenuItem(_('Settings'));
-            this.settingsMenuItem = new PopupMenu.PopupMenuItem('Settings');
-            this.settingsMenuItem.insert_child_at_index(
-                new St.Icon({
-                    icon_name: 'preferences-system-symbolic',
-                    style_class: 'clipboard-menu-icon',
-                    y_align: Clutter.ActorAlign.CENTER
-                }),
-                0
+            this.settingsMenuItem = this._createMenuItem(
+                'Settings',
+                'preferences-system-symbolic',
+                this._openSettings.bind(this)
             );
             this.menu.addMenuItem(this.settingsMenuItem);
-            this.settingsMenuItem.connect('activate', this._openSettings.bind(this));
 
             // Add 'Exit' menu item to close the menu
-            this.exitMenuItem = new PopupMenu.PopupMenuItem('Exit');
-            this.exitMenuItem.insert_child_at_index(
-                new St.Icon({
-                    icon_name: 'window-close-symbolic',
-                    style_class: 'clipboard-menu-icon',
-                    y_align: Clutter.ActorAlign.CENTER
-                }),
-                0
+            this.exitMenuItem = this._createMenuItem(
+                'Exit',
+                'window-close-symbolic',
+                this._exitMenu.bind(this)
             );
             this.menu.addMenuItem(this.exitMenuItem);
-            this.exitMenuItem.connect('activate', this._exitMenu.bind(this));
         }
 
         _getGIcon(name) {
@@ -128,7 +135,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             Gio.app_info_launch_default_for_uri(url, null);
         }
 
-        _openSettings () {
+        _openSettings() {
             this.extension.openPreferences();
         }
 
@@ -136,50 +143,60 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             this.extension.disable();
         }
 
-        _sendClipboardToOpenAI() {
-            // Get clipboard content
+        /**
+         * Get the API token from settings and validate it
+         * @returns {string|null} - The API token or null if not set
+         */
+        _getApiToken() {
+            const apiToken = this.settings.get_string('openai-api-token');
+            if (!apiToken) {
+                this._showNotification('OpenAI API token is not set. Please set it in the extension settings.');
+                return null;
+            }
+            return apiToken;
+        }
+
+        /**
+         * Get clipboard content and process it with the provided callback
+         * @param {Function} callback - Function to call with the clipboard text
+         */
+        _getClipboardContent(callback) {
             const clipboard = St.Clipboard.get_default();
             clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
                 if (!text) {
                     this._showNotification('Clipboard is empty');
                     return;
                 }
+                callback(text);
+            });
+        }
 
-                // Get API token from settings
-                const apiToken = this.settings.get_string('openai-api-token');
-                if (!apiToken) {
-                    this._showNotification('OpenAI API token is not set. Please set it in the extension settings.');
-                    return;
-                }
+        _sendClipboardToOpenAI() {
+            this._getClipboardContent(text => {
+                const apiToken = this._getApiToken();
+                if (!apiToken) return;
 
-                // Send to OpenAI API
                 this._sendToOpenAI(text, apiToken);
             });
         }
 
-        _sendClipboardWithPrefix(shortcutNumber) {
-            // Get clipboard content
-            const clipboard = St.Clipboard.get_default();
-            clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
-                if (!text) {
-                    this._showNotification('Clipboard is empty');
-                    return;
-                }
+        /**
+         * Get the prefix for a shortcut number
+         * @param {number} shortcutNumber - The shortcut number (1 or 2)
+         * @returns {string} - The prefix for the shortcut
+         */
+        _getShortcutPrefix(shortcutNumber) {
+            const settingKey = `shortcut${shortcutNumber}-prefix`;
+            return this.settings.get_string(settingKey);
+        }
 
-                // Get API token from settings
-                const apiToken = this.settings.get_string('openai-api-token');
-                if (!apiToken) {
-                    this._showNotification('OpenAI API token is not set. Please set it in the extension settings.');
-                    return;
-                }
+        _sendClipboardWithPrefix(shortcutNumber) {
+            this._getClipboardContent(text => {
+                const apiToken = this._getApiToken();
+                if (!apiToken) return;
 
                 // Get the appropriate prefix from settings
-                let prefix = '';
-                if (shortcutNumber === 1) {
-                    prefix = this.settings.get_string('shortcut1-prefix');
-                } else if (shortcutNumber === 2) {
-                    prefix = this.settings.get_string('shortcut2-prefix');
-                }
+                const prefix = this._getShortcutPrefix(shortcutNumber);
 
                 // Prefix the text and send to OpenAI
                 const prefixedText = prefix + text;
@@ -206,6 +223,12 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             // Create a message
             const message = Soup.Message.new('POST', 'https://api.openai.com/v1/chat/completions');
 
+            // Check if message was created successfully
+            if (!message) {
+                this._showNotification('Error: Could not create HTTP request');
+                return;
+            }
+
             // Set headers
             message.request_headers.append('Authorization', `Bearer ${apiToken}`);
             message.request_headers.append('Content-Type', 'application/json');
@@ -222,17 +245,45 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 ]
             });
 
-            const bytes = GLib.Bytes.new(Array.from(body).map(c => c.charCodeAt(0)));
+            // Convert string to bytes more efficiently using TextEncoder
+            const encoder = new TextEncoder();
+            const uint8Array = encoder.encode(body);
+            const bytes = GLib.Bytes.new(uint8Array);
             message.set_request_body_from_bytes('application/json', bytes);
 
             // Send the request
             session.send_and_read_async(message, Soup.MessagePriority.NORMAL, null, (session, result) => {
                 try {
                     const bytes = session.send_and_read_finish(result);
+
+                    // Check HTTP status code
+                    const statusCode = message.status_code;
+                    if (statusCode !== 200) {
+                        this._showNotification(`Error: HTTP status ${statusCode}`);
+                        return;
+                    }
+
                     if (bytes) {
                         const data = bytes.get_data();
-                        const responseText = String.fromCharCode.apply(null, data);
-                        const response = JSON.parse(responseText);
+                        if (!data || data.length === 0) {
+                            this._showNotification('Error: Empty response from OpenAI');
+                            return;
+                        }
+
+                        const responseText = new TextDecoder().decode(data);
+                        let response;
+
+                        try {
+                            response = JSON.parse(responseText);
+                        } catch (parseError) {
+                            this._showNotification(`Error parsing response: ${parseError.message}`);
+                            return;
+                        }
+
+                        if (response.error) {
+                            this._showNotification(`API Error: ${response.error.message || 'Unknown error'}`);
+                            return;
+                        }
 
                         if (response.choices && response.choices.length > 0) {
                             const content = response.choices[0].message.content;
@@ -240,10 +291,10 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, content);
                             this._showNotification('Response copied to clipboard');
                         } else {
-                            this._showNotification('Error: No response from OpenAI');
+                            this._showNotification('Error: No valid response content from OpenAI');
                         }
                     } else {
-                        this._showNotification('Error: No response from OpenAI');
+                        this._showNotification('Error: No response data from OpenAI');
                     }
                 } catch (error) {
                     this._showNotification(`Error: ${error.message}`);
@@ -278,40 +329,43 @@ export default class OpenAIShortcutsExtension extends Extension {
         // Remove keyboard shortcuts
         this._removeKeybindings();
 
-        // this.openAIShortcutsIndicator?.quickSettingsItems.forEach(item => item.destroy());
         this.openAIShortcutsIndicator?.destroy();
         this.openAIShortcutsIndicator = null;
     }
 
-    _addKeybindings() {
-        // Add keybinding for shortcut 1
+    /**
+     * Add a keybinding for a shortcut
+     * @param {number} shortcutNumber - The shortcut number (1 or 2)
+     */
+    _addKeybinding(shortcutNumber) {
+        const settingName = `shortcut${shortcutNumber}-keybinding`;
         Main.wm.addKeybinding(
-            'shortcut1-keybinding',
+            settingName,
             this.settings,
             Meta.KeyBindingFlags.NONE,
             Shell.ActionMode.NORMAL,
             () => {
-                this.openAIShortcutsIndicator._sendClipboardWithPrefix(1);
-            }
-        );
-
-        // Add keybinding for shortcut 2
-        Main.wm.addKeybinding(
-            'shortcut2-keybinding',
-            this.settings,
-            Meta.KeyBindingFlags.NONE,
-            Shell.ActionMode.NORMAL,
-            () => {
-                this.openAIShortcutsIndicator._sendClipboardWithPrefix(2);
+                this.openAIShortcutsIndicator._sendClipboardWithPrefix(shortcutNumber);
             }
         );
     }
 
-    _removeKeybindings() {
-        // Remove keybinding for shortcut 1
-        Main.wm.removeKeybinding('shortcut1-keybinding');
+    _addKeybindings() {
+        this._addKeybinding(1);
+        this._addKeybinding(2);
+    }
 
-        // Remove keybinding for shortcut 2
-        Main.wm.removeKeybinding('shortcut2-keybinding');
+    /**
+     * Remove a keybinding for a shortcut
+     * @param {number} shortcutNumber - The shortcut number (1 or 2)
+     */
+    _removeKeybinding(shortcutNumber) {
+        const settingName = `shortcut${shortcutNumber}-keybinding`;
+        Main.wm.removeKeybinding(settingName);
+    }
+
+    _removeKeybindings() {
+        this._removeKeybinding(1);
+        this._removeKeybinding(2);
     }
 }
