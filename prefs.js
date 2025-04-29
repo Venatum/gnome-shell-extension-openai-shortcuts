@@ -4,6 +4,7 @@ import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
 import GObject from 'gi://GObject';
+import Gdk from 'gi://Gdk';
 
 import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
@@ -89,6 +90,65 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         const shortcutsGroup = new Adw.PreferencesGroup({
             title: this.gettext('Shortcuts'),
         });
+
+        // Shortcut 1 Prefix row
+        const shortcut1PrefixRow = this._createSettingsRow({
+            title: 'Shortcut 1 Prefix',
+            subtitle: 'Prefix to add to the API call for Shortcut 1 (default: translate: )',
+            defaultValue: settings.get_string('shortcut1-prefix'),
+            isPassword: false,
+            onChanged: newValue => settings.set_string('shortcut1-prefix', newValue)
+        });
+        shortcutsGroup.add(shortcut1PrefixRow);
+
+        // Shortcut 2 Prefix row
+        const shortcut2PrefixRow = this._createSettingsRow({
+            title: 'Shortcut 2 Prefix',
+            subtitle: 'Prefix to add to the API call for Shortcut 2 (default: improve: )',
+            defaultValue: settings.get_string('shortcut2-prefix'),
+            isPassword: false,
+            onChanged: newValue => settings.set_string('shortcut2-prefix', newValue)
+        });
+        shortcutsGroup.add(shortcut2PrefixRow);
+
+        // Shortcut 1 Keybinding row
+        const shortcut1KeybindingRow = new Adw.ActionRow({
+            title: this.gettext('Shortcut 1 Keybinding'),
+            subtitle: this.gettext('Keyboard shortcut for Shortcut 1 (translate)'),
+        });
+
+        const shortcut1Button = new Gtk.Button({
+            valign: Gtk.Align.CENTER,
+            label: this._getAcceleratorLabel(settings.get_strv('shortcut1-keybinding')[0] || ''),
+        });
+
+        shortcut1Button.connect('clicked', () => {
+            this._showShortcutDialog(settings, 'shortcut1-keybinding', shortcut1Button);
+        });
+
+        shortcut1KeybindingRow.add_suffix(shortcut1Button);
+        shortcut1KeybindingRow.activatable_widget = shortcut1Button;
+        shortcutsGroup.add(shortcut1KeybindingRow);
+
+        // Shortcut 2 Keybinding row
+        const shortcut2KeybindingRow = new Adw.ActionRow({
+            title: this.gettext('Shortcut 2 Keybinding'),
+            subtitle: this.gettext('Keyboard shortcut for Shortcut 2 (improve)'),
+        });
+
+        const shortcut2Button = new Gtk.Button({
+            valign: Gtk.Align.CENTER,
+            label: this._getAcceleratorLabel(settings.get_strv('shortcut2-keybinding')[0] || ''),
+        });
+
+        shortcut2Button.connect('clicked', () => {
+            this._showShortcutDialog(settings, 'shortcut2-keybinding', shortcut2Button);
+        });
+
+        shortcut2KeybindingRow.add_suffix(shortcut2Button);
+        shortcut2KeybindingRow.activatable_widget = shortcut2Button;
+        shortcutsGroup.add(shortcut2KeybindingRow);
+
         page.add(shortcutsGroup);
 
         // Add the page to the window
@@ -123,4 +183,74 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         return row;
     };
 
+    _getAcceleratorLabel(accelerator) {
+        if (!accelerator || accelerator === '')
+            return 'Click to set shortcut';
+
+        return accelerator;
+    }
+
+    _showShortcutDialog(settings, settingName, button) {
+        const dialog = new Gtk.Dialog({
+            title: 'Set Keyboard Shortcut',
+            use_header_bar: true,
+            modal: true,
+            resizable: false,
+        });
+
+        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
+        dialog.add_button('Set', Gtk.ResponseType.OK);
+        dialog.set_default_response(Gtk.ResponseType.OK);
+
+        const contentArea = dialog.get_content_area();
+        contentArea.spacing = 10;
+        contentArea.margin_top = 10;
+        contentArea.margin_bottom = 10;
+        contentArea.margin_start = 10;
+        contentArea.margin_end = 10;
+
+        const label = new Gtk.Label({
+            label: 'Press a key combination to set as shortcut',
+            halign: Gtk.Align.CENTER,
+            valign: Gtk.Align.CENTER,
+            hexpand: true,
+            vexpand: true,
+        });
+        contentArea.append(label);
+
+        let keyval = 0;
+        let mask = 0;
+
+        const controller = new Gtk.EventControllerKey();
+        dialog.add_controller(controller);
+
+        controller.connect('key-pressed', (controller, keyval_, keycode, state) => {
+            keyval = keyval_;
+            mask = state;
+
+            // Ignore modifier keys on their own
+            if (keyval === Gdk.KEY_Control_L || keyval === Gdk.KEY_Control_R ||
+                keyval === Gdk.KEY_Shift_L || keyval === Gdk.KEY_Shift_R ||
+                keyval === Gdk.KEY_Alt_L || keyval === Gdk.KEY_Alt_R ||
+                keyval === Gdk.KEY_Super_L || keyval === Gdk.KEY_Super_R)
+                return false;
+
+            // Create accelerator string
+            const accelerator = Gtk.accelerator_name(keyval, mask);
+            label.set_text(`Shortcut: ${accelerator}`);
+
+            return true;
+        });
+
+        dialog.connect('response', (dialog, response) => {
+            if (response === Gtk.ResponseType.OK && keyval !== 0) {
+                const accelerator = Gtk.accelerator_name(keyval, mask);
+                settings.set_strv(settingName, [accelerator]);
+                button.set_label(this._getAcceleratorLabel(accelerator));
+            }
+            dialog.destroy();
+        });
+
+        dialog.show();
+    }
 }

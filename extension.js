@@ -53,6 +53,34 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             clipboardMenuItem.connect("activate", () => this._sendClipboardToOpenAI());
             this.menu.addMenuItem(clipboardMenuItem);
 
+            // Add Shortcut 1 menu item
+            const shortcut1Prefix = this.settings.get_string('shortcut1-prefix');
+            let shortcut1MenuItem = new PopupMenu.PopupMenuItem(`Shortcut 1: ${shortcut1Prefix}`);
+            shortcut1MenuItem.insert_child_at_index(
+                new St.Icon({
+                    icon_name: 'accessories-dictionary-symbolic',
+                    style_class: 'clipboard-menu-icon',
+                    y_align: Clutter.ActorAlign.CENTER
+                }),
+                0
+            );
+            shortcut1MenuItem.connect("activate", () => this._sendClipboardWithPrefix(1));
+            this.menu.addMenuItem(shortcut1MenuItem);
+
+            // Add Shortcut 2 menu item
+            const shortcut2Prefix = this.settings.get_string('shortcut2-prefix');
+            let shortcut2MenuItem = new PopupMenu.PopupMenuItem(`Shortcut 2: ${shortcut2Prefix}`);
+            shortcut2MenuItem.insert_child_at_index(
+                new St.Icon({
+                    icon_name: 'document-edit-symbolic',
+                    style_class: 'clipboard-menu-icon',
+                    y_align: Clutter.ActorAlign.CENTER
+                }),
+                0
+            );
+            shortcut2MenuItem.connect("activate", () => this._sendClipboardWithPrefix(2));
+            this.menu.addMenuItem(shortcut2MenuItem);
+
             // Add separator
             this.historySeparator = new PopupMenu.PopupSeparatorMenuItem();
             this.menu.addMenuItem(this.historySeparator);
@@ -125,9 +153,38 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 }
 
                 // Send to OpenAI API
-                // TODO
-                this._showNotification(`Sending to OpenAI...${text}`);
-                // this._sendToOpenAI(text, apiToken);
+                this._sendToOpenAI(text, apiToken);
+            });
+        }
+
+        _sendClipboardWithPrefix(shortcutNumber) {
+            // Get clipboard content
+            const clipboard = St.Clipboard.get_default();
+            clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
+                if (!text) {
+                    this._showNotification('Clipboard is empty');
+                    return;
+                }
+
+                // Get API token from settings
+                const apiToken = this.settings.get_string('openai-api-token');
+                if (!apiToken) {
+                    this._showNotification('OpenAI API token is not set. Please set it in the extension settings.');
+                    return;
+                }
+
+                // Get the appropriate prefix from settings
+                let prefix = '';
+                if (shortcutNumber === 1) {
+                    prefix = this.settings.get_string('shortcut1-prefix');
+                } else if (shortcutNumber === 2) {
+                    prefix = this.settings.get_string('shortcut2-prefix');
+                }
+
+                // Prefix the text and send to OpenAI
+                const prefixedText = prefix + text;
+                this._showNotification(`Sending to OpenAI with prefix: ${prefix}`);
+                this._sendToOpenAI(prefixedText, apiToken);
             });
         }
 
@@ -154,8 +211,9 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             message.request_headers.append('Content-Type', 'application/json');
 
             // Set body
+            const model = this.settings.get_string('openai-model');
             const body = JSON.stringify({
-                model: 'gpt-3.5-turbo',
+                model: model,
                 messages: [
                     {
                         role: 'user',
@@ -211,11 +269,49 @@ export default class OpenAIShortcutsExtension extends Extension {
         const positionIndex = 1;
         // Add to panel
         Main.panel.addToStatusArea('openai-shortcuts', this.openAIShortcutsIndicator, positionIndex);
+
+        // Add keyboard shortcuts
+        this._addKeybindings();
     }
 
     disable() {
+        // Remove keyboard shortcuts
+        this._removeKeybindings();
+
         // this.openAIShortcutsIndicator?.quickSettingsItems.forEach(item => item.destroy());
         this.openAIShortcutsIndicator?.destroy();
         this.openAIShortcutsIndicator = null;
+    }
+
+    _addKeybindings() {
+        // Add keybinding for shortcut 1
+        Main.wm.addKeybinding(
+            'shortcut1-keybinding',
+            this.settings,
+            Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL,
+            () => {
+                this.openAIShortcutsIndicator._sendClipboardWithPrefix(1);
+            }
+        );
+
+        // Add keybinding for shortcut 2
+        Main.wm.addKeybinding(
+            'shortcut2-keybinding',
+            this.settings,
+            Meta.KeyBindingFlags.NONE,
+            Shell.ActionMode.NORMAL,
+            () => {
+                this.openAIShortcutsIndicator._sendClipboardWithPrefix(2);
+            }
+        );
+    }
+
+    _removeKeybindings() {
+        // Remove keybinding for shortcut 1
+        Main.wm.removeKeybinding('shortcut1-keybinding');
+
+        // Remove keybinding for shortcut 2
+        Main.wm.removeKeybinding('shortcut2-keybinding');
     }
 }

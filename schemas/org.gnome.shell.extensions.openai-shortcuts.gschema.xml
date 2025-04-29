@@ -31,5 +31,25 @@
       <summary>Notification Title</summary>
       <description>The title to use for notifications</description>
     </key>
+    <key name="shortcut1-prefix" type="s">
+      <default>'translate: '</default>
+      <summary>Shortcut 1 Prefix</summary>
+      <description>Prefix to add to the API call for Shortcut 1</description>
+    </key>
+    <key name="shortcut2-prefix" type="s">
+      <default>'improve: '</default>
+      <summary>Shortcut 2 Prefix</summary>
+      <description>Prefix to add to the API call for Shortcut 2</description>
+    </key>
+    <key name="shortcut1-keybinding" type="as">
+      <default><![CDATA[['<Super>t']]]></default>
+      <summary>Shortcut 1 Keybinding</summary>
+      <description>Keyboard shortcut for Shortcut 1 (translate)</description>
+    </key>
+    <key name="shortcut2-keybinding" type="as">
+      <default><![CDATA[['<Super>i']]]></default>
+      <summary>Shortcut 2 Keybinding</summary>
+      <description>Keyboard shortcut for Shortcut 2 (improve)</description>
+    </key>
   </schema>
 </schemalist>
