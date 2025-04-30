@@ -173,10 +173,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
 
         _sendClipboardToOpenAI() {
             this._getClipboardContent(text => {
-                const apiToken = this._getApiToken();
-                if (!apiToken) return;
-
-                this._sendToOpenAI(text, apiToken);
+                this._sendToOpenAI(text);
             });
         }
 
@@ -186,22 +183,17 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
          * @returns {string} - The prefix for the shortcut
          */
         _getShortcutPrefix(shortcutNumber) {
-            const settingKey = `shortcut${shortcutNumber}-prefix`;
-            return this.settings.get_string(settingKey);
+            return this.settings.get_string(`shortcut${shortcutNumber}-prefix`);
         }
 
         _sendClipboardWithPrefix(shortcutNumber) {
             this._getClipboardContent(text => {
-                const apiToken = this._getApiToken();
-                if (!apiToken) return;
-
                 // Get the appropriate prefix from settings
                 const prefix = this._getShortcutPrefix(shortcutNumber);
 
                 // Prefix the text and send to OpenAI
-                const prefixedText = prefix + text;
-                this._showNotification(`Sending to OpenAI with prefix: ${prefix}`);
-                this._sendToOpenAI(prefixedText, apiToken);
+                const prefixedText = `${prefix} ${text}`;
+                this._sendToOpenAI(prefixedText);
             });
         }
 
@@ -216,14 +208,17 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             Main.notify(title, message);
         }
 
-        _sendToOpenAI(text, apiToken) {
+        _sendToOpenAI(text) {
+            const apiToken = this._getApiToken();
+            if (!apiToken) return;
+
             // Create a session
             const session = new Soup.Session();
 
             // Create a message
             const message = Soup.Message.new('POST', 'https://api.openai.com/v1/chat/completions');
 
-            // Check if message was created successfully
+            // Check if a message was created successfully
             if (!message) {
                 this._showNotification('Error: Could not create HTTP request');
                 return;
@@ -290,6 +285,8 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             // Copy the response to clipboard
                             St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, content);
                             this._showNotification('Response copied to clipboard');
+                            // TODO: debug
+                            this._showNotification(content);
                         } else {
                             this._showNotification('Error: No valid response content from OpenAI');
                         }
