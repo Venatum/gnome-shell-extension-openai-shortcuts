@@ -66,42 +66,24 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             title: this.gettext('Shortcuts'),
         });
 
-        // Shortcut 1 Prefix row
-        const shortcut1PrefixRow = this._createSettingsRow({
-            title: 'Shortcut 1 Prefix',
-            subtitle: 'Prefix to add to the API call for Shortcut 1 (default: translate: )',
-            defaultValue: settings.get_string('shortcut1-prefix'),
-            isPassword: false,
-            onChanged: newValue => settings.set_string('shortcut1-prefix', newValue)
-        });
-        shortcutsGroup.add(shortcut1PrefixRow);
-
-        // Shortcut 2 Prefix row
-        const shortcut2PrefixRow = this._createSettingsRow({
-            title: 'Shortcut 2 Prefix',
-            subtitle: 'Prefix to add to the API call for Shortcut 2 (default: improve: )',
-            defaultValue: settings.get_string('shortcut2-prefix'),
-            isPassword: false,
-            onChanged: newValue => settings.set_string('shortcut2-prefix', newValue)
-        });
-        shortcutsGroup.add(shortcut2PrefixRow);
-
-        // Create keybinding rows
-        const shortcut1KeybindingRow = this._createKeybindingRow({
+        // Create combined shortcut rows
+        const shortcut1Row = this._createKeybindingRow({
             settings: settings,
-            title: 'Shortcut 1 Keybinding',
-            subtitle: 'Keyboard shortcut for Shortcut 1 (translate)',
-            settingName: 'shortcut1-keybinding'
+            title: 'Shortcut 1',
+            subtitle: 'Keyboard shortcut and prefix for Shortcut 1 (default prefix: translate:)',
+            settingName: 'shortcut1-keybinding',
+            prefixSettingName: 'shortcut1-prefix'
         });
-        shortcutsGroup.add(shortcut1KeybindingRow);
+        shortcutsGroup.add(shortcut1Row);
 
-        const shortcut2KeybindingRow = this._createKeybindingRow({
+        const shortcut2Row = this._createKeybindingRow({
             settings: settings,
-            title: 'Shortcut 2 Keybinding',
-            subtitle: 'Keyboard shortcut for Shortcut 2 (improve)',
-            settingName: 'shortcut2-keybinding'
+            title: 'Shortcut 2',
+            subtitle: 'Keyboard shortcut and prefix for Shortcut 2 (default prefix: improve:)',
+            settingName: 'shortcut2-keybinding',
+            prefixSettingName: 'shortcut2-prefix'
         });
-        shortcutsGroup.add(shortcut2KeybindingRow);
+        shortcutsGroup.add(shortcut2Row);
         return shortcutsGroup;
     }
 
@@ -181,20 +163,64 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
     };
 
     /**
-     * Create a keybinding row with a button to set the shortcut
+     * Create a keybinding row with a button to set the shortcut and an entry for the prefix
      * @param {Object} options - Options for the row
      * @param {Gio.Settings} options.settings - The settings object
      * @param {string} options.title - The title of the row
      * @param {string} options.subtitle - The subtitle of the row
      * @param {string} options.settingName - The name of the setting containing the keybinding
+     * @param {string} options.prefixSettingName - The name of the setting containing the prefix
      * @returns {Adw.ActionRow} - The created row
      */
-    _createKeybindingRow({settings, title, subtitle, settingName}) {
+    _createKeybindingRow({settings, title, subtitle, settingName, prefixSettingName}) {
         const row = new Adw.ActionRow({
             title: this.gettext(title),
             subtitle: this.gettext(subtitle),
         });
 
+        // Create a vertical box to hold the prefix and keybinding
+        const box = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 5,
+            valign: Gtk.Align.CENTER,
+        });
+
+        // Create prefix container
+        const prefixBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 5,
+            halign: Gtk.Align.END,
+        });
+
+        // Create prefix entry
+        const prefixEntry = new Gtk.Entry({
+            text: settings.get_string(prefixSettingName),
+            valign: Gtk.Align.CENTER,
+            width_request: 150,
+        });
+
+        prefixEntry.connect('changed', widget => {
+            settings.set_string(prefixSettingName, widget.get_text());
+        });
+
+        // Add prefix label
+        const prefixLabel = new Gtk.Label({
+            label: 'Prefix:',
+            valign: Gtk.Align.CENTER,
+            margin_end: 5,
+        });
+
+        prefixBox.append(prefixLabel);
+        prefixBox.append(prefixEntry);
+
+        // Create keybinding container
+        const keybindingBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 5,
+            halign: Gtk.Align.END,
+        });
+
+        // Create keybinding button
         const button = new Gtk.Button({
             valign: Gtk.Align.CENTER,
             label: this._getAcceleratorLabel(settings.get_strv(settingName)[0] || ''),
@@ -204,7 +230,22 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             this._showShortcutDialog(settings, settingName, button);
         });
 
-        row.add_suffix(button);
+        // Add shortcut label
+        const shortcutLabel = new Gtk.Label({
+            label: 'Shortcut:',
+            valign: Gtk.Align.CENTER,
+            margin_end: 5,
+        });
+
+        keybindingBox.append(shortcutLabel);
+        keybindingBox.append(button);
+
+        // Add the prefix and keybinding boxes to the vertical box
+        box.append(prefixBox);
+        box.append(keybindingBox);
+
+        // Add the vertical box to the row
+        row.add_suffix(box);
         row.activatable_widget = button;
 
         return row;
