@@ -235,6 +235,66 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             Main.notify(title, message);
         }
 
+        /**
+         * Log API errors based on settings
+         * @param {string} message - The error message to log
+         * @param {Object} [details] - Additional details about the error
+         */
+        _logApiError(message, details = null) {
+            // Check if API error logging is enabled
+            if (!this.settings.get_boolean('enable-api-error-logging')) {
+                return;
+            }
+
+            // Get log level from settings
+            const logLevel = this.settings.get_string('api-error-log-level');
+
+            // Create log entry with timestamp
+            const timestamp = new Date().toISOString();
+            let logEntry = `[${timestamp}] [${logLevel.toUpperCase()}] ${message}`;
+
+            // Add details if provided
+            if (details) {
+                if (typeof details === 'object') {
+                    try {
+                        logEntry += `\nDetails: ${JSON.stringify(details, null, 2)}`;
+                    } catch (e) {
+                        logEntry += `\nDetails: [Object could not be stringified]`;
+                    }
+                } else {
+                    logEntry += `\nDetails: ${details}`;
+                }
+            }
+
+            // Log to console based on the log level
+            switch (logLevel) {
+                case 'debug':
+                    console.debug(logEntry);
+                    break;
+                case 'info':
+                    console.info(logEntry);
+                    break;
+                case 'error':
+                default:
+                    console.error(logEntry);
+                    break;
+            }
+        }
+
+        /**
+         * Format API URL to avoid double slashes
+         * @param {string} baseUrl - The base API URL
+         * @param {string} endpoint - The API endpoint to append
+         * @returns {string} - The properly formatted URL
+         */
+        _formatApiUrl(baseUrl, endpoint) {
+            // Remove the trailing slash from baseUrl if it exists
+            const formattedBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+            // Ensure the endpoint starts with a slash
+            const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+            return `${formattedBaseUrl}${formattedEndpoint}`;
+        }
+
         _sendToOpenAI(text) {
             const apiToken = this._getApiToken();
             if (!apiToken) return;
@@ -242,12 +302,16 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             // Create a session
             const session = new Soup.Session();
 
-            // Create a message
-            const message = Soup.Message.new('POST', 'https://api.openai.com/v1/chat/completions');
+            // Get API URL from settings
+            const apiUrl = this.settings.get_string('openai-api-url');
+            // Create a message with a properly formatted URL
+            const message = Soup.Message.new('POST', this._formatApiUrl(apiUrl, 'chat/completions'));
 
             // Check if a message was created successfully
             if (!message) {
-                this._showNotification('Error: Could not create HTTP request');
+                const errorMsg = 'Error: Could not create HTTP request';
+                this._showNotification(errorMsg);
+                this._logApiError(errorMsg, { url: this._formatApiUrl(apiUrl, 'chat/completions') });
                 return;
             }
 
@@ -281,14 +345,25 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                     // Check HTTP status code
                     const statusCode = message.status_code;
                     if (statusCode !== 200) {
-                        this._showNotification(`Error: HTTP status ${statusCode}`);
+                        const errorMsg = `Error: HTTP status ${statusCode}`;
+                        this._showNotification(errorMsg);
+                        this._logApiError(errorMsg, {
+                            statusCode: statusCode,
+                            url: this._formatApiUrl(apiUrl, 'chat/completions'),
+                            responseHeaders: message.response_headers ? message.response_headers.toString() : 'No headers'
+                        });
                         return;
                     }
 
                     if (bytes) {
                         const data = bytes.get_data();
                         if (!data || data.length === 0) {
-                            this._showNotification('Error: Empty response from OpenAI');
+                            const errorMsg = 'Error: Empty response from OpenAI';
+                            this._showNotification(errorMsg);
+                            this._logApiError(errorMsg, {
+                                statusCode: statusCode,
+                                url: this._formatApiUrl(apiUrl, 'chat/completions')
+                            });
                             return;
                         }
 
@@ -298,12 +373,23 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                         try {
                             response = JSON.parse(responseText);
                         } catch (parseError) {
-                            this._showNotification(`Error parsing response: ${parseError.message}`);
+                            const errorMsg = `Error parsing response: ${parseError.message}`;
+                            this._showNotification(errorMsg);
+                            this._logApiError(errorMsg, {
+                                error: parseError.toString(),
+                                responseText: responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
+                            });
                             return;
                         }
 
                         if (response.error) {
-                            this._showNotification(`API Error: ${response.error.message || 'Unknown error'}`);
+                            const errorMsg = `API Error: ${response.error.message || 'Unknown error'}`;
+                            this._showNotification(errorMsg);
+                            this._logApiError(errorMsg, {
+                                error: response.error,
+                                model: model,
+                                requestLength: text.length
+                            });
                             return;
                         }
 
@@ -315,13 +401,30 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             // TODO: debug
                             this._showNotification(content);
                         } else {
-                            this._showNotification('Error: No valid response content from OpenAI');
+                            const errorMsg = 'Error: No valid response content from OpenAI';
+                            this._showNotification(errorMsg);
+                            this._logApiError(errorMsg, {
+                                response: response,
+                                model: model
+                            });
                         }
                     } else {
-                        this._showNotification('Error: No response data from OpenAI');
+                        const errorMsg = 'Error: No response data from OpenAI';
+                        this._showNotification(errorMsg);
+                        this._logApiError(errorMsg, {
+                            statusCode: statusCode,
+                            url: this._formatApiUrl(apiUrl, 'chat/completions')
+                        });
                     }
                 } catch (error) {
-                    this._showNotification(`Error: ${error.message}`);
+                    const errorMsg = `Error: ${error.message}`;
+                    this._showNotification(errorMsg);
+                    this._logApiError(errorMsg, {
+                        error: error.toString(),
+                        stack: error.stack,
+                        model: model,
+                        url: this._formatApiUrl(apiUrl, 'chat/completions')
+                    });
                 }
             });
         }

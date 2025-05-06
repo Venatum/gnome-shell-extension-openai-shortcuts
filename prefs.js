@@ -19,6 +19,7 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         page.add(this._generalSettings(settings));
         page.add(this._shortcutsSettings(settings));
         page.add(this._notificationSettings(settings));
+        page.add(this._loggingSettings(settings));
 
         // Add the page to the window
         window.add(page);
@@ -36,6 +37,14 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             defaultValue: settings.get_string('chatgpt-url'),
             isPassword: false,
             onChanged: newValue => settings.set_string('chatgpt-url', newValue)
+        });
+        // OpenAI API URL row
+        const apiUrlRow = this._createSettingsRow({
+            title: 'OpenAI API URL',
+            subtitle: 'Base URL for OpenAI API requests',
+            defaultValue: settings.get_string('openai-api-url'),
+            isPassword: false,
+            onChanged: newValue => settings.set_string('openai-api-url', newValue)
         });
         // OpenAI API Token row
         const apiTokenRow = this._createSettingsRow({
@@ -55,6 +64,7 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         });
         // Add rows to group and group to the page
         generalGroup.add(chatgptUrlRow);
+        generalGroup.add(apiUrlRow);
         generalGroup.add(apiTokenRow);
         generalGroup.add(modelRow);
         return generalGroup;
@@ -434,6 +444,87 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         });
         notificationGroup.add(notificationTitleRow);
         return notificationGroup;
+    }
+
+    _loggingSettings(settings) {
+        //// Logging Settings group
+        const loggingGroup = new Adw.PreferencesGroup({
+            title: this.gettext('API Error Logging'),
+        });
+
+        // Enable API Error Logging switch
+        const enableLoggingRow = new Adw.ActionRow({
+            title: this.gettext('Enable API Error Logging'),
+            subtitle: this.gettext('Log API errors for debugging purposes'),
+        });
+
+        const enableLoggingSwitch = new Gtk.Switch({
+            active: settings.get_boolean('enable-api-error-logging'),
+            valign: Gtk.Align.CENTER,
+        });
+
+        enableLoggingSwitch.connect('notify::active', widget => {
+            settings.set_boolean('enable-api-error-logging', widget.get_active());
+        });
+
+        enableLoggingRow.add_suffix(enableLoggingSwitch);
+        enableLoggingRow.activatable_widget = enableLoggingSwitch;
+        loggingGroup.add(enableLoggingRow);
+
+        // Log Level dropdown
+        const logLevelRow = new Adw.ActionRow({
+            title: this.gettext('Log Level'),
+            subtitle: this.gettext('The level of detail for API error logs'),
+        });
+
+        // Create a dropdown for log level
+        const logLevelModel = new Gtk.StringList();
+        logLevelModel.append('error');
+        logLevelModel.append('info');
+        logLevelModel.append('debug');
+
+        const logLevelDropdown = new Gtk.DropDown({
+            model: logLevelModel,
+            valign: Gtk.Align.CENTER,
+        });
+
+        // Set the active item based on the current setting
+        const currentLogLevel = settings.get_string('api-error-log-level');
+        switch (currentLogLevel) {
+            case 'debug':
+                logLevelDropdown.set_selected(2);
+                break;
+            case 'info':
+                logLevelDropdown.set_selected(1);
+                break;
+            case 'error':
+            default:
+                logLevelDropdown.set_selected(0);
+                break;
+        }
+
+        // Connect the signal to update the setting when changed
+        logLevelDropdown.connect('notify::selected', widget => {
+            const selected = widget.get_selected();
+            let logLevel = 'error';
+            switch (selected) {
+                case 0:
+                    logLevel = 'error';
+                    break;
+                case 1:
+                    logLevel = 'info';
+                    break;
+                case 2:
+                    logLevel = 'debug';
+                    break;
+            }
+            settings.set_string('api-error-log-level', logLevel);
+        });
+
+        logLevelRow.add_suffix(logLevelDropdown);
+        loggingGroup.add(logLevelRow);
+
+        return loggingGroup;
     }
 
     /**

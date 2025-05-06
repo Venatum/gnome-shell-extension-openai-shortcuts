@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="openai-shortcuts">
   <schema id="org.gnome.shell.extensions.openai-shortcuts" path="/org/gnome/shell/extensions/openai-shortcuts/">
+    <!-- General Settings -->
     <key name="chatgpt-url" type="s">
       <default>'https://chat.openai.com'</default>
       <summary>ChatGPT URL</summary>
       <description>URL to open when clicking on the ChatGPT menu item</description>
     </key>
-    <key name="custom-shortcuts" type="as">
-      <default><![CDATA[[
-        '{"name":"Translate","prefix":"translate: ","keybinding":"<Super>t"}',
-        '{"name":"Improve","prefix":"improve: ","keybinding":"<Super>i"}'
-      ]]]></default>
-      <summary>Custom shortcuts</summary>
-      <description>List of custom shortcuts to OpenAI services</description>
+
+    <!-- API Settings -->
+    <key name="openai-api-url" type="s">
+      <default>'https://api.openai.com/v1/'</default>
+      <summary>OpenAI API URL</summary>
+      <description>Base URL for OpenAI API requests</description>
     </key>
     <key name="openai-api-token" type="s">
       <default>''</default>
@@ -24,6 +24,8 @@
       <summary>OpenAI Model</summary>
       <description>The OpenAI model to use for API requests</description>
     </key>
+
+    <!-- Notification Settings -->
     <key name="enable-notifications" type="b">
       <default>true</default>
       <summary>Enable Notifications</summary>
@@ -34,27 +36,35 @@
       <summary>Notification Title</summary>
       <description>The title to use for notifications</description>
     </key>
-    <key name="shortcut1-prefix" type="s">
-      <default>'translate: '</default>
-      <summary>Shortcut 1 Prefix</summary>
-      <description>Prefix to add to the API call for Shortcut 1</description>
+
+    <!-- Logging Settings -->
+    <key name="enable-api-error-logging" type="b">
+      <default>true</default>
+      <summary>Enable API Error Logging</summary>
+      <description>Whether to log API errors for debugging purposes</description>
     </key>
-    <key name="shortcut2-prefix" type="s">
-      <default>'improve: '</default>
-      <summary>Shortcut 2 Prefix</summary>
-      <description>Prefix to add to the API call for Shortcut 2</description>
+    <key name="api-error-log-level" type="s">
+      <default>'error'</default>
+      <summary>API Error Log Level</summary>
+      <description>The level of detail for API error logs (error, info, debug)</description>
     </key>
-    <key name="shortcut1-keybinding" type="as">
-      <default><![CDATA[['<Super>t']]]></default>
-      <summary>Shortcut 1 Keybinding</summary>
-      <description>Keyboard shortcut for Shortcut 1 (translate)</description>
+
+    <!-- Shortcut Settings -->
+    <key name="custom-shortcuts" type="as">
+      <default><![CDATA[[
+        '{"name":"Translate","prefix":"translate: ","keybinding":"<Super>t"}',
+        '{"name":"Improve","prefix":"improve: ","keybinding":"<Super>i"}'
+      ]]]></default>
+      <summary>Custom shortcuts</summary>
+      <description>List of custom shortcuts to OpenAI services</description>
     </key>
-    <key name="shortcut2-keybinding" type="as">
-      <default><![CDATA[['<Super>i']]]></default>
-      <summary>Shortcut 2 Keybinding</summary>
-      <description>Keyboard shortcut for Shortcut 2 (improve)</description>
-    </key>
-    <!-- Custom shortcut keybindings -->
+
+    <!--
+      Custom shortcut keybindings
+      These keys are used to store the actual keybindings for custom shortcuts.
+      They are referenced by index in the code (custom-shortcut-0, custom-shortcut-1, etc.)
+      and correspond to the shortcuts defined in the custom-shortcuts key.
+    -->
     <key name="custom-shortcut-0" type="as">
       <default>[]</default>
       <summary>Custom Shortcut 0</summary>
