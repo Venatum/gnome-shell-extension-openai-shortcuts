@@ -295,6 +295,67 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             return `${formattedBaseUrl}${formattedEndpoint}`;
         }
 
+        /**
+         * Format headers from Soup.MessageHeaders into a readable object
+         * @param {Soup.MessageHeaders} headers - The headers object
+         * @returns {Object} - Formatted headers as a key-value object
+         */
+        _formatHeaders(headers) {
+            if (!headers) return 'No headers';
+
+            try {
+                const formattedHeaders = {};
+
+                // Try to get all header names if the method exists
+                if (typeof headers.get_header_names === 'function') {
+                    const headerNames = headers.get_header_names();
+
+                    // For each header name, get its value
+                    if (headerNames && headerNames.length) {
+                        for (let i = 0; i < headerNames.length; i++) {
+                            const name = headerNames[i];
+                            const value = headers.get_one(name);
+                            formattedHeaders[name] = value;
+                        }
+                        return formattedHeaders;
+                    }
+                }
+
+                // Alternative approach if get_header_names is not available
+                // Try common headers
+                const commonHeaders = [
+                    'Content-Type', 'Content-Length', 'Server',
+                    'Date', 'Connection', 'Cache-Control',
+                    'Access-Control-Allow-Origin', 'X-Request-ID'
+                ];
+
+                let foundAny = false;
+                for (const name of commonHeaders) {
+                    const value = headers.get_one(name);
+                    if (value) {
+                        formattedHeaders[name] = value;
+                        foundAny = true;
+                    }
+                }
+
+                if (foundAny) {
+                    return formattedHeaders;
+                }
+
+                // If all else fails, try to use foreach if available
+                if (typeof headers.foreach === 'function') {
+                    headers.foreach((name, value) => {
+                        formattedHeaders[name] = value;
+                    });
+                    return formattedHeaders;
+                }
+
+                return 'Could not extract headers';
+            } catch (error) {
+                return `Error extracting headers: ${error.message}`;
+            }
+        }
+
         _sendToOpenAI(text) {
             const apiToken = this._getApiToken();
             if (!apiToken) return;
@@ -345,12 +406,35 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                     // Check HTTP status code
                     const statusCode = message.status_code;
                     if (statusCode !== 200) {
-                        const errorMsg = `Error: HTTP status ${statusCode}`;
+                        // Try to extract more information from the response body for better error reporting
+                        let errorDetails = '';
+                        let responseData = null;
+
+                        if (bytes) {
+                            const data = bytes.get_data();
+                            if (data && data.length > 0) {
+                                try {
+                                    const responseText = new TextDecoder().decode(data);
+                                    responseData = JSON.parse(responseText);
+                                    if (responseData && responseData.error) {
+                                        errorDetails = `: ${responseData.error.message || responseData.error.type || 'Unknown error'}`;
+                                    } else if (responseData && (responseData.detail || responseData.title)) {
+                                        // Handle alternative error format (like the one in the issue with title, detail, status, type)
+                                        errorDetails = `: ${responseData.detail || responseData.title || 'Unknown error'}`;
+                                    }
+                                } catch (e) {
+                                    // Ignore parsing errors, we'll just use the status code
+                                }
+                            }
+                        }
+
+                        const errorMsg = `Error: HTTP status ${statusCode}: ${responseData && responseData.detail ? responseData.detail : 'Unknown error'}`;
                         this._showNotification(errorMsg);
                         this._logApiError(errorMsg, {
                             statusCode: statusCode,
                             url: this._formatApiUrl(apiUrl, 'chat/completions'),
-                            responseHeaders: message.response_headers ? message.response_headers.toString() : 'No headers'
+                            responseHeaders: message.response_headers ? this._formatHeaders(message.response_headers) : 'No headers',
+                            responseData: responseData
                         });
                         return;
                     }
