@@ -31,7 +31,12 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             });
 
             this.add_child(icon);
-            this._buildMenu()
+            this._buildMenu();
+
+            // Listen for changes to the custom-shortcuts setting
+            this.settingsChangedId = this.settings.connect('changed::custom-shortcuts', () => {
+                this._rebuildMenu();
+            });
         }
 
         /**
@@ -62,17 +67,32 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
 
         /**
          * Create a shortcut menu item
-         * @param {number} shortcutNumber - The shortcut number (1 or 2)
+         * @param {Object} shortcut - The shortcut object
          * @param {string} iconName - The icon name for the menu item
          * @returns {PopupMenu.PopupMenuItem} - The created menu item
          */
-        _createShortcutMenuItem(shortcutNumber, iconName) {
-            const prefix = this._getShortcutPrefix(shortcutNumber);
+        _createShortcutMenuItem(shortcut, iconName) {
             return this._createMenuItem(
-                `Shortcut ${shortcutNumber}: ${prefix}`,
+                `${shortcut.name}`,
                 iconName,
-                () => this._sendClipboardWithPrefix(shortcutNumber)
+                () => this._sendClipboardWithPrefix(shortcut)
             );
+        }
+
+        /**
+         * Get the shortcuts from settings
+         * @returns {Array} - Array of shortcut objects
+         */
+        _getShortcuts() {
+            const shortcutsStrings = this.settings.get_strv('custom-shortcuts');
+            return shortcutsStrings.map(shortcutString => {
+                try {
+                    return JSON.parse(shortcutString);
+                } catch (e) {
+                    console.error(`Error parsing shortcut: ${shortcutString}`, e);
+                    return null;
+                }
+            }).filter(shortcut => shortcut !== null);
         }
 
         _buildMenu() {
@@ -91,17 +111,21 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 () => this._sendClipboardToOpenAI()
             );
             this.menu.addMenuItem(clipboardMenuItem);
+            // Add separator
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
             // Add Shortcut menu items
-            const shortcut1MenuItem = this._createShortcutMenuItem(1, 'accessories-dictionary-symbolic');
-            this.menu.addMenuItem(shortcut1MenuItem);
+            const shortcuts = this._getShortcuts();
+            const icons = ['accessories-dictionary-symbolic', 'document-edit-symbolic', 'edit-find-symbolic', 'edit-select-all-symbolic'];
 
-            const shortcut2MenuItem = this._createShortcutMenuItem(2, 'document-edit-symbolic');
-            this.menu.addMenuItem(shortcut2MenuItem);
+            shortcuts.forEach((shortcut, index) => {
+                const iconName = icons[index % icons.length];
+                const shortcutMenuItem = this._createShortcutMenuItem(shortcut, iconName);
+                this.menu.addMenuItem(shortcutMenuItem);
+            });
 
             // Add separator
-            this.historySeparator = new PopupMenu.PopupSeparatorMenuItem();
-            this.menu.addMenuItem(this.historySeparator);
+            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
             // Add 'Settings' menu item to open settings
             this.settingsMenuItem = this._createMenuItem(
@@ -144,6 +168,17 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
         }
 
         /**
+         * Rebuild the menu when shortcuts change
+         */
+        _rebuildMenu() {
+            // Remove all menu items
+            this.menu.removeAll();
+
+            // Rebuild the menu
+            this._buildMenu();
+        }
+
+        /**
          * Get the API token from settings and validate it
          * @returns {string|null} - The API token or null if not set
          */
@@ -178,21 +213,13 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
         }
 
         /**
-         * Get the prefix for a shortcut number
-         * @param {number} shortcutNumber - The shortcut number (1 or 2)
-         * @returns {string} - The prefix for the shortcut
+         * Send clipboard content with a prefix from a shortcut
+         * @param {Object} shortcut - The shortcut object
          */
-        _getShortcutPrefix(shortcutNumber) {
-            return this.settings.get_string(`shortcut${shortcutNumber}-prefix`);
-        }
-
-        _sendClipboardWithPrefix(shortcutNumber) {
+        _sendClipboardWithPrefix(shortcut) {
             this._getClipboardContent(text => {
-                // Get the appropriate prefix from settings
-                const prefix = this._getShortcutPrefix(shortcutNumber);
-
                 // Prefix the text and send to OpenAI
-                const prefixedText = `${prefix} ${text}`;
+                const prefixedText = `${shortcut.prefix} ${text}`;
                 this._sendToOpenAI(prefixedText);
             });
         }
@@ -326,43 +353,91 @@ export default class OpenAIShortcutsExtension extends Extension {
         // Remove keyboard shortcuts
         this._removeKeybindings();
 
+        // Disconnect settings signal if it exists
+        if (this.openAIShortcutsIndicator && this.openAIShortcutsIndicator.settingsChangedId) {
+            this.settings.disconnect(this.openAIShortcutsIndicator.settingsChangedId);
+            this.openAIShortcutsIndicator.settingsChangedId = 0;
+        }
+
         this.openAIShortcutsIndicator?.destroy();
         this.openAIShortcutsIndicator = null;
     }
 
     /**
-     * Add a keybinding for a shortcut
-     * @param {number} shortcutNumber - The shortcut number (1 or 2)
+     * Get the shortcuts from settings
+     * @returns {Array} - Array of shortcut objects
      */
-    _addKeybinding(shortcutNumber) {
-        const settingName = `shortcut${shortcutNumber}-keybinding`;
+    _getShortcuts() {
+        const shortcutsStrings = this.settings.get_strv('custom-shortcuts');
+        return shortcutsStrings.map(shortcutString => {
+            try {
+                return JSON.parse(shortcutString);
+            } catch (e) {
+                console.error(`Error parsing shortcut: ${shortcutString}`, e);
+                return null;
+            }
+        }).filter(shortcut => shortcut !== null);
+    }
+
+    /**
+     * Add a keybinding for a shortcut
+     * @param {Object} shortcut - The shortcut object
+     * @param {number} index - The index of the shortcut
+     */
+    _addKeybinding(shortcut, index) {
+        if (!shortcut.keybinding || shortcut.keybinding === '') {
+            return;
+        }
+
+        // Create a unique name for the keybinding
+        const bindingName = `custom-shortcut-${index}`;
+
+        // Set the keybinding value in the settings
+        this.settings.set_strv(bindingName, [shortcut.keybinding]);
+
+        // Add the keybinding
         Main.wm.addKeybinding(
-            settingName,
+            bindingName,
             this.settings,
             Meta.KeyBindingFlags.NONE,
             Shell.ActionMode.NORMAL,
             () => {
-                this.openAIShortcutsIndicator._sendClipboardWithPrefix(shortcutNumber);
+                this.openAIShortcutsIndicator._sendClipboardWithPrefix(shortcut);
             }
         );
+
+        // Store the binding name for later removal
+        if (!this._customBindingNames) {
+            this._customBindingNames = [];
+        }
+        this._customBindingNames.push(bindingName);
     }
 
     _addKeybindings() {
-        this._addKeybinding(1);
-        this._addKeybinding(2);
+        const shortcuts = this._getShortcuts();
+        shortcuts.forEach((shortcut, index) => {
+            this._addKeybinding(shortcut, index);
+        });
     }
 
     /**
-     * Remove a keybinding for a shortcut
-     * @param {number} shortcutNumber - The shortcut number (1 or 2)
+     * Remove a keybinding
+     * @param {string} bindingName - The name of the keybinding to remove
      */
-    _removeKeybinding(shortcutNumber) {
-        const settingName = `shortcut${shortcutNumber}-keybinding`;
-        Main.wm.removeKeybinding(settingName);
+    _removeKeybinding(bindingName) {
+        try {
+            Main.wm.removeKeybinding(bindingName);
+        } catch (e) {
+            console.error(`Error removing keybinding: ${bindingName}`, e);
+        }
     }
 
     _removeKeybindings() {
-        this._removeKeybinding(1);
-        this._removeKeybinding(2);
+        if (this._customBindingNames) {
+            this._customBindingNames.forEach(bindingName => {
+                this._removeKeybinding(bindingName);
+            });
+            this._customBindingNames = [];
+        }
     }
 }

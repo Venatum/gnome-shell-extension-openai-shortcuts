@@ -7,7 +7,10 @@
       <description>URL to open when clicking on the ChatGPT menu item</description>
     </key>
     <key name="custom-shortcuts" type="as">
-      <default>[]</default>
+      <default><![CDATA[[
+        '{"name":"Translate","prefix":"translate: ","keybinding":"<Super>t"}',
+        '{"name":"Improve","prefix":"improve: ","keybinding":"<Super>i"}'
+      ]]]></default>
       <summary>Custom shortcuts</summary>
       <description>List of custom shortcuts to OpenAI services</description>
     </key>
@@ -50,6 +53,57 @@
       <default><![CDATA[['<Super>i']]]></default>
       <summary>Shortcut 2 Keybinding</summary>
       <description>Keyboard shortcut for Shortcut 2 (improve)</description>
+    </key>
+    <!-- Custom shortcut keybindings -->
+    <key name="custom-shortcut-0" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 0</summary>
+      <description>Keyboard shortcut for custom shortcut 0</description>
+    </key>
+    <key name="custom-shortcut-1" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 1</summary>
+      <description>Keyboard shortcut for custom shortcut 1</description>
+    </key>
+    <key name="custom-shortcut-2" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 2</summary>
+      <description>Keyboard shortcut for custom shortcut 2</description>
+    </key>
+    <key name="custom-shortcut-3" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 3</summary>
+      <description>Keyboard shortcut for custom shortcut 3</description>
+    </key>
+    <key name="custom-shortcut-4" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 4</summary>
+      <description>Keyboard shortcut for custom shortcut 4</description>
+    </key>
+    <key name="custom-shortcut-5" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 5</summary>
+      <description>Keyboard shortcut for custom shortcut 5</description>
+    </key>
+    <key name="custom-shortcut-6" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 6</summary>
+      <description>Keyboard shortcut for custom shortcut 6</description>
+    </key>
+    <key name="custom-shortcut-7" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 7</summary>
+      <description>Keyboard shortcut for custom shortcut 7</description>
+    </key>
+    <key name="custom-shortcut-8" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 8</summary>
+      <description>Keyboard shortcut for custom shortcut 8</description>
+    </key>
+    <key name="custom-shortcut-9" type="as">
+      <default>[]</default>
+      <summary>Custom Shortcut 9</summary>
+      <description>Keyboard shortcut for custom shortcut 9</description>
     </key>
   </schema>
 </schemalist>
