@@ -20,7 +20,7 @@
       <description>API token for accessing OpenAI services</description>
     </key>
     <key name="openai-model" type="s">
-      <default>'gpt-3.5-turbo'</default>
+      <default>'gpt-4.1'</default>
       <summary>OpenAI Model</summary>
       <description>The OpenAI model to use for API requests</description>
     </key>
@@ -39,7 +39,7 @@
 
     <!-- Logging Settings -->
     <key name="enable-api-error-logging" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable API Error Logging</summary>
       <description>Whether to log API errors for debugging purposes</description>
     </key>

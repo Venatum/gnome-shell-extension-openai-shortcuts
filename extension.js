@@ -477,8 +477,22 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             return;
                         }
 
-                        if (response.choices && response.choices.length > 0) {
-                            const content = response.choices[0].message.content;
+                        // Handle different response structures (standard and nested)
+                        let content = null;
+
+                        // Check for standard OpenAI API response structure
+                        if (response.choices && response.choices.length > 0 && response.choices[0].message && response.choices[0].message.content) {
+                            content = response.choices[0].message.content;
+                        }
+                        // Check for nested response structure (seen with GPT-4.1)
+                        else if (response.response && response.response.choices &&
+                                 response.response.choices.length > 0 &&
+                                 response.response.choices[0].message &&
+                                 response.response.choices[0].message.content) {
+                            content = response.response.choices[0].message.content;
+                        }
+
+                        if (content) {
                             // Copy the response to clipboard
                             St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, content);
                             this._showNotification('Response copied to clipboard');
