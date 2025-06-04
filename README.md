@@ -142,20 +142,20 @@ make debug
    git commit -m "Description of changes"
    ```
 
-3. Create a new tag with the version number:
+3. Push your changes to GitHub:
    ```bash
-   git tag v1.0.0  # Replace with your version number
+   git push origin main
    ```
 
-4. Push the tag to GitHub:
-   ```bash
-   git push origin v1.0.0
-   ```
+4. Go to the GitHub repository and click on "Releases" in the right sidebar
+5. Click on "Create a new release"
+6. Enter a tag version (e.g., v1.0.0), release title, and description
+7. Click "Publish release"
 
-5. The GitHub Action will automatically:
+8. The GitHub Action will automatically:
    - Build the extension
    - Update the version in metadata.json
-   - Create a GitHub release with the packaged extension
+   - Upload the packaged extension as a release asset
 
 ### Manual Release
 
