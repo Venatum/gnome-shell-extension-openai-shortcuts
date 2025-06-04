@@ -10,6 +10,7 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import {QuickToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quickSettings.js';
@@ -30,6 +31,11 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 style_class: 'system-status-icon'
             });
 
+            // Set accessible properties for the panel button
+            // Note: St.AccessibleRole is no longer available in GNOME Shell 46
+            this.accessible_name = "OpenAI Shortcuts";
+            this.accessible_description = "Access OpenAI features and shortcuts";
+
             this.add_child(icon);
             this._buildMenu();
 
@@ -49,15 +55,22 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
         _createMenuItem(text, iconName, callback) {
             const menuItem = new PopupMenu.PopupMenuItem(text);
 
+            // Set accessibility properties for the menu item
+            // Note: St.AccessibleRole is no longer available in GNOME Shell 46
+            menuItem.accessible_name = text;
+
             if (iconName) {
-                menuItem.insert_child_at_index(
-                    new St.Icon({
-                        icon_name: iconName,
-                        style_class: 'clipboard-menu-icon',
-                        y_align: Clutter.ActorAlign.CENTER
-                    }),
-                    0
-                );
+                const icon = new St.Icon({
+                    icon_name: iconName,
+                    style_class: 'clipboard-menu-icon',
+                    y_align: Clutter.ActorAlign.CENTER
+                });
+
+                // Set accessibility properties for the icon
+                // Note: St.AccessibleRole is no longer available in GNOME Shell 46
+                icon.accessible_name = iconName.replace(/-symbolic$/, '').replace(/-/g, ' ');
+
+                menuItem.insert_child_at_index(icon, 0);
             }
             if (callback) {
                 menuItem.connect('activate', callback);
@@ -72,11 +85,21 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
          * @returns {PopupMenu.PopupMenuItem} - The created menu item
          */
         _createShortcutMenuItem(shortcut, iconName) {
-            return this._createMenuItem(
+            const menuItem = this._createMenuItem(
                 `${shortcut.name}`,
                 iconName,
                 () => this._sendClipboardWithPrefix(shortcut)
             );
+
+            // Add additional accessibility information for shortcuts
+            menuItem.accessible_description = `Sends clipboard content with prefix "${shortcut.prefix}" to OpenAI`;
+
+            // If the shortcut has a keybinding, add it to the accessible description
+            if (shortcut.keybinding && shortcut.keybinding !== '') {
+                menuItem.accessible_description += ` (Keyboard shortcut: ${shortcut.keybinding})`;
+            }
+
+            return menuItem;
         }
 
         /**
@@ -185,7 +208,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
         _getApiToken() {
             const apiToken = this.settings.get_string('openai-api-token');
             if (!apiToken) {
-                this._showNotification('OpenAI API token is not set. Please set it in the extension settings.');
+                this._showNotification('OpenAI API token is not set. Please set it in the extension settings.', true);
                 return null;
             }
             return apiToken;
@@ -199,7 +222,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             const clipboard = St.Clipboard.get_default();
             clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
                 if (!text) {
-                    this._showNotification('Clipboard is empty');
+                    this._showNotification('Clipboard is empty', true);
                     return;
                 }
                 callback(text);
@@ -224,7 +247,12 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             });
         }
 
-        _showNotification(message) {
+        /**
+         * Show a notification with proper accessibility support
+         * @param {string} message - The message to display in the notification
+         * @param {boolean} isError - Whether this is an error notification
+         */
+        _showNotification(message, isError = false) {
             // Check if notifications are enabled
             if (!this.settings.get_boolean('enable-notifications')) {
                 return;
@@ -232,7 +260,30 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
 
             // Get notification title from settings
             const title = this.settings.get_string('notification-title');
-            Main.notify(title, message);
+
+            // Create a source for the notification
+            const source = new MessageTray.Source({
+                title: title,
+                iconName: 'dialog-information-symbolic'
+            });
+
+            // Add the source to the message tray
+            Main.messageTray.add(source);
+
+            // Create the notification with accessibility attributes
+            const notification = new MessageTray.Notification({
+                source: source,
+                title: title,
+                body: message,
+                // Use CRITICAL urgency for errors to ensure they're announced by screen readers
+                urgency: isError ? MessageTray.Urgency.CRITICAL : MessageTray.Urgency.NORMAL
+            });
+
+            // Ensure the notification is accessible to screen readers
+            // Note: St.AccessibleRole is no longer available in GNOME Shell 46
+
+            // Show the notification
+            source.showNotification(notification);
         }
 
         /**
@@ -371,7 +422,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             // Check if a message was created successfully
             if (!message) {
                 const errorMsg = 'Error: Could not create HTTP request';
-                this._showNotification(errorMsg);
+                this._showNotification(errorMsg, true);
                 this._logApiError(errorMsg, { url: this._formatApiUrl(apiUrl, 'chat/completions') });
                 return;
             }
@@ -429,7 +480,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                         }
 
                         const errorMsg = `Error: HTTP status ${statusCode}: ${responseData && responseData.detail ? responseData.detail : 'Unknown error'}`;
-                        this._showNotification(errorMsg);
+                        this._showNotification(errorMsg, true);
                         this._logApiError(errorMsg, {
                             statusCode: statusCode,
                             url: this._formatApiUrl(apiUrl, 'chat/completions'),
@@ -443,7 +494,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                         const data = bytes.get_data();
                         if (!data || data.length === 0) {
                             const errorMsg = 'Error: Empty response from OpenAI';
-                            this._showNotification(errorMsg);
+                            this._showNotification(errorMsg, true);
                             this._logApiError(errorMsg, {
                                 statusCode: statusCode,
                                 url: this._formatApiUrl(apiUrl, 'chat/completions')
@@ -458,7 +509,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             response = JSON.parse(responseText);
                         } catch (parseError) {
                             const errorMsg = `Error parsing response: ${parseError.message}`;
-                            this._showNotification(errorMsg);
+                            this._showNotification(errorMsg, true);
                             this._logApiError(errorMsg, {
                                 error: parseError.toString(),
                                 responseText: responseText.substring(0, 500) + (responseText.length > 500 ? '...' : '')
@@ -468,7 +519,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
 
                         if (response.error) {
                             const errorMsg = `API Error: ${response.error.message || 'Unknown error'}`;
-                            this._showNotification(errorMsg);
+                            this._showNotification(errorMsg, true);
                             this._logApiError(errorMsg, {
                                 error: response.error,
                                 model: model,
@@ -500,7 +551,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                             this._showNotification(content);
                         } else {
                             const errorMsg = 'Error: No valid response content from OpenAI';
-                            this._showNotification(errorMsg);
+                            this._showNotification(errorMsg, true);
                             this._logApiError(errorMsg, {
                                 response: response,
                                 model: model
@@ -508,7 +559,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                         }
                     } else {
                         const errorMsg = 'Error: No response data from OpenAI';
-                        this._showNotification(errorMsg);
+                        this._showNotification(errorMsg, true);
                         this._logApiError(errorMsg, {
                             statusCode: statusCode,
                             url: this._formatApiUrl(apiUrl, 'chat/completions')
@@ -516,7 +567,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                     }
                 } catch (error) {
                     const errorMsg = `Error: ${error.message}`;
-                    this._showNotification(errorMsg);
+                    this._showNotification(errorMsg, true);
                     this._logApiError(errorMsg, {
                         error: error.toString(),
                         stack: error.stack,

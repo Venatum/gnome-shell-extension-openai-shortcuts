@@ -234,6 +234,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
     _createShortcutRow(settings, shortcut, index) {
         const row = new Gtk.ListBoxRow();
 
+        // Set accessibility properties for the row
+        row.accessible_role = Gtk.AccessibleRole.ROW;
+        row.accessible_name = `Shortcut: ${shortcut.name}`;
+        row.accessible_description = `Custom shortcut with prefix "${shortcut.prefix}"`;
+
         // Create a vertical box for the row content
         const rowBox = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
@@ -255,12 +260,21 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             width_request: 60,
             halign: Gtk.Align.START,
         });
+        // Set accessibility properties for the label
+        nameLabel.accessible_role = Gtk.AccessibleRole.LABEL;
+        nameLabel.accessible_name = 'Name';
+
         nameBox.append(nameLabel);
 
         const nameEntry = new Gtk.Entry({
             text: shortcut.name,
             hexpand: true,
         });
+        // Set accessibility properties for the entry
+        nameEntry.accessible_role = Gtk.AccessibleRole.TEXT_BOX;
+        nameEntry.accessible_name = 'Shortcut name';
+        nameEntry.accessible_description = 'Enter a name for this shortcut';
+
         nameEntry.connect('changed', widget => {
             const shortcuts = this._getShortcuts(settings);
             shortcuts[index].name = widget.get_text();
@@ -283,12 +297,21 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             width_request: 60,
             halign: Gtk.Align.START,
         });
+        // Set accessibility properties for the label
+        prefixLabel.accessible_role = Gtk.AccessibleRole.LABEL;
+        prefixLabel.accessible_name = 'Prefix';
+
         controlsBox.append(prefixLabel);
 
         const prefixEntry = new Gtk.Entry({
             text: shortcut.prefix,
             width_request: 100,
         });
+        // Set accessibility properties for the entry
+        prefixEntry.accessible_role = Gtk.AccessibleRole.TEXT_BOX;
+        prefixEntry.accessible_name = 'Shortcut prefix';
+        prefixEntry.accessible_description = 'Enter a prefix for this shortcut';
+
         prefixEntry.connect('changed', widget => {
             const shortcuts = this._getShortcuts(settings);
             shortcuts[index].prefix = widget.get_text();
@@ -302,12 +325,21 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             width_request: 70,
             halign: Gtk.Align.START,
         });
+        // Set accessibility properties for the label
+        shortcutLabel.accessible_role = Gtk.AccessibleRole.LABEL;
+        shortcutLabel.accessible_name = 'Shortcut';
+
         controlsBox.append(shortcutLabel);
 
         const button = new Gtk.Button({
             label: this._getAcceleratorLabel(shortcut.keybinding),
             width_request: 120,
         });
+        // Set accessibility properties for the button
+        button.accessible_role = Gtk.AccessibleRole.BUTTON;
+        button.accessible_name = 'Set keyboard shortcut';
+        button.accessible_description = 'Click to set a keyboard shortcut for this action';
+
         button.connect('clicked', () => {
             this._showCustomShortcutDialog(settings, index, button);
         });
@@ -318,6 +350,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             icon_name: 'user-trash-symbolic',
             css_classes: ['destructive-action'],
         });
+        // Set accessibility properties for the button
+        removeButton.accessible_role = Gtk.AccessibleRole.BUTTON;
+        removeButton.accessible_name = 'Remove shortcut';
+        removeButton.accessible_description = 'Remove this shortcut';
+
         removeButton.connect('clicked', () => {
             this._removeShortcut(settings, index);
         });
@@ -344,9 +381,23 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             resizable: false,
         });
 
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
-        dialog.add_button('Set', Gtk.ResponseType.OK);
+        // Set accessibility properties for the dialog
+        dialog.accessible_role = Gtk.AccessibleRole.DIALOG;
+        dialog.accessible_name = 'Set Keyboard Shortcut';
+        dialog.accessible_description = 'Dialog to set a keyboard shortcut for this custom action';
+
+        const cancelButton = dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
+        const setButton = dialog.add_button('Set', Gtk.ResponseType.OK);
         dialog.set_default_response(Gtk.ResponseType.OK);
+
+        // Set accessibility properties for the buttons
+        cancelButton.accessible_role = Gtk.AccessibleRole.BUTTON;
+        cancelButton.accessible_name = 'Cancel';
+        cancelButton.accessible_description = 'Cancel setting the keyboard shortcut';
+
+        setButton.accessible_role = Gtk.AccessibleRole.BUTTON;
+        setButton.accessible_name = 'Set';
+        setButton.accessible_description = 'Apply the keyboard shortcut';
 
         const contentArea = dialog.get_content_area();
         contentArea.spacing = 10;
@@ -362,6 +413,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             hexpand: true,
             vexpand: true,
         });
+
+        // Set accessibility properties for the label
+        label.accessible_role = Gtk.AccessibleRole.LABEL;
+        label.accessible_name = 'Press a key combination to set as shortcut';
+
         contentArea.append(label);
 
         let keyval = 0;
@@ -415,16 +471,31 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             title: this.gettext('Notification Settings'),
         });
 
+        // Set accessibility properties for the group
+        notificationGroup.accessible_role = Gtk.AccessibleRole.GROUP;
+        notificationGroup.accessible_name = this.gettext('Notification Settings');
+        notificationGroup.accessible_description = this.gettext('Configure notification preferences');
+
         // Enable the Notifications switch
         const enableNotificationsRow = new Adw.ActionRow({
             title: this.gettext('Enable Notifications'),
             subtitle: this.gettext('Show notifications for OpenAI operations'),
         });
 
+        // Set accessibility properties for the row
+        enableNotificationsRow.accessible_role = Gtk.AccessibleRole.ROW;
+        enableNotificationsRow.accessible_name = this.gettext('Enable Notifications');
+        enableNotificationsRow.accessible_description = this.gettext('Show notifications for OpenAI operations');
+
         const enableNotificationsSwitch = new Gtk.Switch({
             active: settings.get_boolean('enable-notifications'),
             valign: Gtk.Align.CENTER,
         });
+
+        // Set accessibility properties for the switch
+        enableNotificationsSwitch.accessible_role = Gtk.AccessibleRole.SWITCH;
+        enableNotificationsSwitch.accessible_name = this.gettext('Enable Notifications');
+        enableNotificationsSwitch.accessible_description = this.gettext('Toggle to enable or disable notifications');
 
         enableNotificationsSwitch.connect('notify::active', widget => {
             settings.set_boolean('enable-notifications', widget.get_active());
@@ -452,16 +523,31 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             title: this.gettext('API Error Logging'),
         });
 
+        // Set accessibility properties for the group
+        loggingGroup.accessible_role = Gtk.AccessibleRole.GROUP;
+        loggingGroup.accessible_name = this.gettext('API Error Logging');
+        loggingGroup.accessible_description = this.gettext('Configure API error logging preferences');
+
         // Enable API Error Logging switch
         const enableLoggingRow = new Adw.ActionRow({
             title: this.gettext('Enable API Error Logging'),
             subtitle: this.gettext('Log API errors for debugging purposes'),
         });
 
+        // Set accessibility properties for the row
+        enableLoggingRow.accessible_role = Gtk.AccessibleRole.ROW;
+        enableLoggingRow.accessible_name = this.gettext('Enable API Error Logging');
+        enableLoggingRow.accessible_description = this.gettext('Log API errors for debugging purposes');
+
         const enableLoggingSwitch = new Gtk.Switch({
             active: settings.get_boolean('enable-api-error-logging'),
             valign: Gtk.Align.CENTER,
         });
+
+        // Set accessibility properties for the switch
+        enableLoggingSwitch.accessible_role = Gtk.AccessibleRole.SWITCH;
+        enableLoggingSwitch.accessible_name = this.gettext('Enable API Error Logging');
+        enableLoggingSwitch.accessible_description = this.gettext('Toggle to enable or disable API error logging');
 
         enableLoggingSwitch.connect('notify::active', widget => {
             settings.set_boolean('enable-api-error-logging', widget.get_active());
@@ -477,6 +563,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             subtitle: this.gettext('The level of detail for API error logs'),
         });
 
+        // Set accessibility properties for the row
+        logLevelRow.accessible_role = Gtk.AccessibleRole.ROW;
+        logLevelRow.accessible_name = this.gettext('Log Level');
+        logLevelRow.accessible_description = this.gettext('The level of detail for API error logs');
+
         // Create a dropdown for log level
         const logLevelModel = new Gtk.StringList();
         logLevelModel.append('error');
@@ -487,6 +578,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             model: logLevelModel,
             valign: Gtk.Align.CENTER,
         });
+
+        // Set accessibility properties for the dropdown
+        logLevelDropdown.accessible_role = Gtk.AccessibleRole.COMBO_BOX;
+        logLevelDropdown.accessible_name = this.gettext('Log Level');
+        logLevelDropdown.accessible_description = this.gettext('Select the level of detail for API error logs');
 
         // Set the active item based on the current setting
         const currentLogLevel = settings.get_string('api-error-log-level');
@@ -543,6 +639,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             subtitle: this.gettext(subtitle),
         });
 
+        // Set accessibility properties for the row
+        row.accessible_role = Gtk.AccessibleRole.GROUP;
+        row.accessible_name = this.gettext(title);
+        row.accessible_description = this.gettext(subtitle);
+
         const entry = isPassword
             ? new Gtk.PasswordEntry({
                 text: defaultValue,
@@ -555,6 +656,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
                 valign: Gtk.Align.CENTER,
                 hexpand: true,
             });
+
+        // Set accessibility properties for the entry
+        entry.accessible_role = Gtk.AccessibleRole.TEXT_BOX;
+        entry.accessible_name = this.gettext(title);
+        entry.accessible_description = this.gettext(subtitle);
 
         row.add_suffix(entry);
         row.activatable_widget = entry;
@@ -680,9 +786,23 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             resizable: false,
         });
 
-        dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
-        dialog.add_button('Set', Gtk.ResponseType.OK);
+        // Set accessibility properties for the dialog
+        dialog.accessible_role = Gtk.AccessibleRole.DIALOG;
+        dialog.accessible_name = 'Set Keyboard Shortcut';
+        dialog.accessible_description = 'Dialog to set a keyboard shortcut for this action';
+
+        const cancelButton = dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
+        const setButton = dialog.add_button('Set', Gtk.ResponseType.OK);
         dialog.set_default_response(Gtk.ResponseType.OK);
+
+        // Set accessibility properties for the buttons
+        cancelButton.accessible_role = Gtk.AccessibleRole.BUTTON;
+        cancelButton.accessible_name = 'Cancel';
+        cancelButton.accessible_description = 'Cancel setting the keyboard shortcut';
+
+        setButton.accessible_role = Gtk.AccessibleRole.BUTTON;
+        setButton.accessible_name = 'Set';
+        setButton.accessible_description = 'Apply the keyboard shortcut';
 
         const contentArea = dialog.get_content_area();
         contentArea.spacing = 10;
@@ -698,6 +818,11 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             hexpand: true,
             vexpand: true,
         });
+
+        // Set accessibility properties for the label
+        label.accessible_role = Gtk.AccessibleRole.LABEL;
+        label.accessible_name = 'Press a key combination to set as shortcut';
+
         contentArea.append(label);
 
         let keyval = 0;
