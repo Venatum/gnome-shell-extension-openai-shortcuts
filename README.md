@@ -2,7 +2,9 @@
 
 A GNOME Shell extension that provides keyboard shortcuts and quick access to OpenAI's ChatGPT directly from your desktop.
 
-![OpenAI Shortcuts Extension](https://github.com/Venatum/gnome-shell-extension-openai-shortcuts/raw/main/screenshots/menu.png)
+> This extension is not affiliated, funded, or in any way associated with OpenAI and ChatGPT.
+
+[//]: # (![OpenAI Shortcuts Extension]&#40;https://github.com/Venatum/gnome-shell-extension-openai-shortcuts/raw/main/screenshots/menu.png&#41;)
 
 ## Features
 
@@ -130,76 +132,6 @@ To view logs from the extension:
 ```bash
 make debug
 ```
-
-## Release Process
-
-### Automated Release (Using GitHub Actions)
-
-1. Update the code with your changes
-2. Commit your changes:
-   ```bash
-   git add .
-   git commit -m "Description of changes"
-   ```
-
-3. Push your changes to GitHub:
-   ```bash
-   git push origin main
-   ```
-
-4. Go to the GitHub repository and click on "Releases" in the right sidebar
-5. Click on "Create a new release"
-6. Enter a tag version (e.g., v1.0.0), release title, and description
-7. Click "Publish release"
-
-8. The GitHub Action will automatically:
-   - Build the extension
-   - Update the version in metadata.json
-   - Upload the packaged extension as a release asset
-
-### Manual Release
-
-#### Using the Release Script (Recommended)
-
-1. Run the release script with the new version number:
-   ```bash
-   ./release.sh 2  # Replace with your version number
-   ```
-
-2. Follow the instructions provided by the script for committing, tagging, and pushing your changes.
-
-3. The packaged extension will be available as `openai-shortcuts@venatum.com.zip`
-
-#### Manual Steps
-
-If you prefer to do it manually:
-
-1. Update the version in `metadata.json`:
-   ```json
-   {
-     "version": 2  // Increment this number
-   }
-   ```
-
-2. Compile the schemas:
-   ```bash
-   make compile-schemas
-   ```
-
-3. Create the package:
-   ```bash
-   make package
-   ```
-
-4. The packaged extension will be available as `openai-shortcuts@venatum.com.zip`
-
-### Submitting to GNOME Extensions Website
-
-1. Visit [extensions.gnome.org](https://extensions.gnome.org/)
-2. Log in with your GNOME account
-3. Go to your user page and click "Upload Extension"
-4. Upload the ZIP file created in the previous step
-5. Fill in the required information and submit
 
 ## License
 

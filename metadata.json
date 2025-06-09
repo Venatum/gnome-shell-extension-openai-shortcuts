@@ -1,7 +1,7 @@
 {
   "uuid": "openai-shortcuts@venatum.com",
   "name": "OpenAI Shortcuts",
-  "description": "A GNOME Shell extension that provides keyboard shortcuts for OpenAI's ChatGPT.",
+  "description": "A GNOME Shell extension that provides keyboard shortcuts for OpenAI's ChatGPT. This extension is not affiliated, funded, or in any way associated with OpenAI and ChatGPT.",
   "version": 1,
   "shell-version": ["46"],
   "url": "https://github.com/Venatum/gnome-shell-extension-openai-shortcuts",

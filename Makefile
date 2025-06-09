@@ -2,7 +2,7 @@ EXTENSION_UUID=$(shell jq -r '.uuid' metadata.json)
 EXTENSION_NAME=$(shell jq -r '.uuid' metadata.json | cut -d '@' -f1)
 EXTENSION_DIR=~/.local/share/gnome-shell/extensions/$(EXTENSION_UUID)
 
-SRC=metadata.json *.js stylesheet.css icons schemas
+SRC=metadata.json *.js icons schemas
 
 # Commandes
 GNOME_EXTENSIONS=gnome-extensions

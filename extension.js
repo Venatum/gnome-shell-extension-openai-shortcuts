@@ -23,6 +23,8 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             this.metadata = metadata;
             this.settings = settings;
             this.extension = extension;
+            this.session = null;
+            this._notifSource = null;
 
             // Ajouter une icône
             let icon = new St.Icon({
@@ -258,32 +260,34 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 return;
             }
 
+            // Initialize notification source if needed
+            this._initNotifSource();
+
             // Get notification title from settings
             const title = this.settings.get_string('notification-title');
 
-            // Create a source for the notification
-            const source = new MessageTray.Source({
-                title: title,
-                iconName: 'dialog-information-symbolic'
-            });
+            let notification = null;
 
-            // Add the source to the message tray
-            Main.messageTray.add(source);
-
-            // Create the notification with accessibility attributes
-            const notification = new MessageTray.Notification({
-                source: source,
-                title: title,
-                body: message,
-                // Use CRITICAL urgency for errors to ensure they're announced by screen readers
-                urgency: isError ? MessageTray.Urgency.CRITICAL : MessageTray.Urgency.NORMAL
-            });
-
-            // Ensure the notification is accessible to screen readers
-            // Note: St.AccessibleRole is no longer available in GNOME Shell 46
+            // Check if we already have a notification
+            if (this._notifSource.notifications.length === 0) {
+                // Create a new notification
+                notification = new MessageTray.Notification({
+                    source: this._notifSource,
+                    title: title,
+                    body: message,
+                    // Use CRITICAL urgency for errors to ensure they're announced by screen readers
+                    urgency: isError ? MessageTray.Urgency.CRITICAL : MessageTray.Urgency.NORMAL
+                });
+            } else {
+                // Update existing notification
+                notification = this._notifSource.notifications[0];
+                notification.title = title;
+                notification.body = message;
+                notification.urgency = isError ? MessageTray.Urgency.CRITICAL : MessageTray.Urgency.NORMAL;
+            }
 
             // Show the notification
-            source.showNotification(notification);
+            this._notifSource.addNotification(notification);
         }
 
         /**
@@ -412,7 +416,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             if (!apiToken) return;
 
             // Create a session
-            const session = new Soup.Session();
+            this.session = new Soup.Session();
 
             // Get API URL from settings
             const apiUrl = this.settings.get_string('openai-api-url');
@@ -423,7 +427,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             if (!message) {
                 const errorMsg = 'Error: Could not create HTTP request';
                 this._showNotification(errorMsg, true);
-                this._logApiError(errorMsg, { url: this._formatApiUrl(apiUrl, 'chat/completions') });
+                this._logApiError(errorMsg, {url: this._formatApiUrl(apiUrl, 'chat/completions')});
                 return;
             }
 
@@ -450,7 +454,7 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
             message.set_request_body_from_bytes('application/json', bytes);
 
             // Send the request
-            session.send_and_read_async(message, Soup.MessagePriority.NORMAL, null, (session, result) => {
+            this.session.send_and_read_async(message, Soup.MessagePriority.NORMAL, null, (session, result) => {
                 try {
                     const bytes = session.send_and_read_finish(result);
 
@@ -537,9 +541,9 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                         }
                         // Check for nested response structure (seen with GPT-4.1)
                         else if (response.response && response.response.choices &&
-                                 response.response.choices.length > 0 &&
-                                 response.response.choices[0].message &&
-                                 response.response.choices[0].message.content) {
+                            response.response.choices.length > 0 &&
+                            response.response.choices[0].message &&
+                            response.response.choices[0].message.content) {
                             content = response.response.choices[0].message.content;
                         }
 
@@ -577,6 +581,43 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
                 }
             });
         }
+
+        /**
+         * Initialize the notification source if it doesn't exist yet
+         */
+        _initNotifSource() {
+            if (!this._notifSource) {
+                // Get notification title from settings
+                const title = this.settings.get_string('notification-title');
+
+                this._notifSource = new MessageTray.Source({
+                    title: title,
+                    iconName: 'dialog-information-symbolic'
+                });
+
+                this._notifSource.connect('destroy', () => {
+                    this._notifSource = null;
+                });
+
+                Main.messageTray.add(this._notifSource);
+            }
+        }
+
+        destroy() {
+            // Abort any pending network requests
+            if (this.session) {
+                this.session.abort();
+                this.session = null;
+            }
+
+            // Clean up notification source
+            if (this._notifSource) {
+                this._notifSource = null;
+            }
+
+            // Call parent's destroy method
+            super.destroy();
+        }
     });
 
 export default class OpenAIShortcutsExtension extends Extension {
@@ -613,6 +654,8 @@ export default class OpenAIShortcutsExtension extends Extension {
 
         this.openAIShortcutsIndicator?.destroy();
         this.openAIShortcutsIndicator = null;
+
+        this.settings = null;
     }
 
     /**
