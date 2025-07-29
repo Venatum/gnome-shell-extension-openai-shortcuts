@@ -222,9 +222,10 @@ const OpenAIShortcutsIndicator = GObject.registerClass(
          */
         _getClipboardContent(callback) {
             const clipboard = St.Clipboard.get_default();
-            clipboard.get_text(St.ClipboardType.CLIPBOARD, (clipboard, text) => {
+            // Use only selection and not the clipboard
+            clipboard.get_text(St.ClipboardType.SELECTION, (clipboard, text) => {
                 if (!text) {
-                    this._showNotification('Clipboard is empty', true);
+                    this._showNotification('Nothing selected', true);
                     return;
                 }
                 callback(text);
