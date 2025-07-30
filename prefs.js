@@ -374,6 +374,19 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
      * @param {Gtk.Button} button - The button that was clicked to open the dialog
      */
     _showCustomShortcutDialog(settings, index, button) {
+        const dialog = this._createShortcutDialog();
+        const {label, keyState} = this._setupShortcutDialogUI(dialog);
+        this._setupShortcutEventHandlers(dialog, label, keyState);
+        this._handleShortcutDialogResponse(dialog, settings, index, button, keyState);
+
+        dialog.show();
+    }
+
+    /**
+     * Create and configure the shortcut dialog
+     * @returns {Gtk.Dialog} The configured dialog
+     */
+    _createShortcutDialog() {
         const dialog = new Gtk.Dialog({
             title: 'Set Keyboard Shortcut',
             use_header_bar: true,
@@ -391,14 +404,30 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
         dialog.set_default_response(Gtk.ResponseType.OK);
 
         // Set accessibility properties for the buttons
-        cancelButton.accessible_role = Gtk.AccessibleRole.BUTTON;
-        cancelButton.accessible_name = 'Cancel';
-        cancelButton.accessible_description = 'Cancel setting the keyboard shortcut';
+        this._setButtonAccessibility(cancelButton, 'Cancel', 'Cancel setting the keyboard shortcut');
+        this._setButtonAccessibility(setButton, 'Set', 'Apply the keyboard shortcut');
 
-        setButton.accessible_role = Gtk.AccessibleRole.BUTTON;
-        setButton.accessible_name = 'Set';
-        setButton.accessible_description = 'Apply the keyboard shortcut';
+        return dialog;
+    }
 
+    /**
+     * Set accessibility properties for a button
+     * @param {Gtk.Button} button - The button to configure
+     * @param {string} name - The accessible name
+     * @param {string} description - The accessible description
+     */
+    _setButtonAccessibility(button, name, description) {
+        button.accessible_role = Gtk.AccessibleRole.BUTTON;
+        button.accessible_name = name;
+        button.accessible_description = description;
+    }
+
+    /**
+     * Setup the UI elements for the shortcut dialog
+     * @param {Gtk.Dialog} dialog - The dialog to setup
+     * @returns {Object} Object containing the label and keyState
+     */
+    _setupShortcutDialogUI(dialog) {
         const contentArea = dialog.get_content_area();
         contentArea.spacing = 10;
         contentArea.margin_top = 10;
@@ -420,33 +449,143 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
 
         contentArea.append(label);
 
-        let keyval = 0;
-        let mask = 0;
+        // Create key state object to track captured keys
+        const keyState = {
+            keyval: 0,
+            mask: 0
+        };
 
+        return {label, keyState};
+    }
+
+    /**
+     * Setup event handlers for the shortcut dialog
+     * @param {Gtk.Dialog} dialog - The dialog
+     * @param {Gtk.Label} label - The instruction label
+     * @param {Object} keyState - Object to store key state
+     */
+    _setupShortcutEventHandlers(dialog, label, keyState) {
+        // Create both EventControllerKey and EventControllerFocus for better X11 compatibility
         const controller = new Gtk.EventControllerKey();
         dialog.add_controller(controller);
 
-        controller.connect('key-pressed', (controller, keyval_, keycode, state) => {
-            keyval = keyval_;
-            mask = state;
+        // Add a focus controller to ensure the dialog can receive key events on X11
+        const focusController = new Gtk.EventControllerFocus();
+        dialog.add_controller(focusController);
 
-            // Ignore modifier keys on their own
-            if (keyval === Gdk.KEY_Control_L || keyval === Gdk.KEY_Control_R ||
-                keyval === Gdk.KEY_Shift_L || keyval === Gdk.KEY_Shift_R ||
-                keyval === Gdk.KEY_Alt_L || keyval === Gdk.KEY_Alt_R ||
-                keyval === Gdk.KEY_Super_L || keyval === Gdk.KEY_Super_R)
-                return false;
-
-            // Create accelerator string
-            const accelerator = Gtk.accelerator_name(keyval, mask);
-            label.set_text(`Shortcut: ${accelerator}`);
-
-            return true;
+        // Ensure the dialog is focused and can receive key events
+        dialog.connect('show', () => {
+            // Give the dialog focus after it's shown
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                dialog.grab_focus();
+                return GLib.SOURCE_REMOVE;
+            });
         });
 
+        // Enhanced key-pressed handler with better X11 support
+        controller.connect('key-pressed', (controller, keyval, keycode, state) => {
+            return this._handleKeyPressed(keyval, state, label, keyState);
+        });
+
+        // Add key-released handler for better compatibility
+        controller.connect('key-released', () => {
+            // This helps ensure the dialog stays responsive on X11
+            return false;
+        });
+    }
+
+    /**
+     * Handle key press events in the shortcut dialog
+     * @param {number} keyval - The key value
+     * @param {number} state - The modifier state
+     * @param {Gtk.Label} label - The instruction label
+     * @param {Object} keyState - Object to store key state
+     * @returns {boolean} Whether the event was handled
+     */
+    _handleKeyPressed(keyval, state, label, keyState) {
+        keyState.keyval = keyval;
+        keyState.mask = state;
+
+        // Validate the key input
+        const validation = this._validateKeyInput(keyval);
+        if (!validation) {
+            return false;
+        }
+
+        // Clean the modifier mask
+        const cleanMask = this._cleanModifierMask(state);
+
+        // Create accelerator string with cleaned mask
+        const accelerator = Gtk.accelerator_name(keyval, cleanMask);
+
+        // Final validation of the accelerator
+        if (accelerator && accelerator !== '' && cleanMask !== 0) {
+            label.set_text(`Shortcut: ${accelerator}`);
+            keyState.mask = cleanMask; // Update mask with cleaned version
+            return true;
+        } else {
+            label.set_text('Press a key combination with modifier keys (Ctrl, Alt, Super)');
+            return false;
+        }
+    }
+
+    /**
+     * Validates the provided key input to determine whether it should be processed.
+     *
+     * @param {number} keyval - The key value to be validated, typically from a key event.
+     * @return {boolean} Returns true if the key input is valid and should be processed,
+     *                   otherwise false for ignored or unwanted keys.
+     */
+    _validateKeyInput(keyval) {
+        // Ignore modifier keys on their own
+        const modifierKeys = [
+            Gdk.KEY_Control_L, Gdk.KEY_Control_R,
+            Gdk.KEY_Shift_L, Gdk.KEY_Shift_R,
+            Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
+            Gdk.KEY_Super_L, Gdk.KEY_Super_R,
+            Gdk.KEY_Meta_L, Gdk.KEY_Meta_R,
+            Gdk.KEY_Hyper_L, Gdk.KEY_Hyper_R
+        ];
+
+        if (modifierKeys.includes(keyval)) {
+            return false;
+        }
+
+        // Filter out unwanted keys
+        const unwantedKeys = [
+            Gdk.KEY_Escape, Gdk.KEY_Tab,
+            Gdk.KEY_Return, Gdk.KEY_KP_Enter,
+            Gdk.KEY_BackSpace, Gdk.KEY_Delete
+        ];
+        return !(unwantedKeys.includes(keyval));
+    }
+
+    /**
+     * Clean modifier mask to remove unwanted modifiers
+     * @param {number} state - The raw modifier state
+     * @returns {number} The cleaned modifier mask
+     */
+    _cleanModifierMask(state) {
+        // Remove lock keys and other non-essential modifiers
+        return state & (Gdk.ModifierType.SHIFT_MASK |
+            Gdk.ModifierType.CONTROL_MASK |
+            Gdk.ModifierType.ALT_MASK |
+            Gdk.ModifierType.SUPER_MASK |
+            Gdk.ModifierType.META_MASK);
+    }
+
+    /**
+     * Handle dialog response and update settings
+     * @param {Gtk.Dialog} dialog - The dialog
+     * @param {Gio.Settings} settings - The settings object
+     * @param {number} index - The shortcut index
+     * @param {Gtk.Button} button - The button to update
+     * @param {Object} keyState - The captured key state
+     */
+    _handleShortcutDialogResponse(dialog, settings, index, button, keyState) {
         dialog.connect('response', (dialog, response) => {
-            if (response === Gtk.ResponseType.OK && keyval !== 0) {
-                const accelerator = Gtk.accelerator_name(keyval, mask);
+            if (response === Gtk.ResponseType.OK && keyState.keyval !== 0) {
+                const accelerator = Gtk.accelerator_name(keyState.keyval, keyState.mask);
 
                 // Update the shortcut in the custom-shortcuts setting
                 const shortcuts = this._getShortcuts(settings);
@@ -461,8 +600,6 @@ export default class OpenAIShortcutsPreferences extends ExtensionPreferences {
             }
             dialog.destroy();
         });
-
-        dialog.show();
     }
 
     _notificationSettings(settings) {
